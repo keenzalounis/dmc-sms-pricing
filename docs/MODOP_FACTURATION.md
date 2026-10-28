@@ -39,6 +39,8 @@ L'application est accessible directement depuis votre navigateur web habituel (G
 4. Cliquez sur le bouton **📈 Graphe** à droite de la ligne :
    - Une fenêtre s'ouvre avec la courbe d'évolution du prix dans le temps.
    - Vous pouvez visualiser l'historique complet des dates d'effet pour justifier l'évolution tarifaire auprès du client.
+5. *(Nouveau)* Pour obtenir des synthèses globales illustrées prêtes pour vos comités ou dossiers clients, cliquez sur **« 📊 Rapports Python »** dans la barre supérieure :
+   - Vous accédez à la galerie des graphiques haute résolution (Top hausses/baisses, distribution des tarifs, synthèse exécutive A4 téléchargeable en un clic).
 
 ---
 

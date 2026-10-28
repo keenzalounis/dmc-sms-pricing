@@ -20,7 +20,8 @@ Solution légère et autonome de gestion, d'historisation et d'exportation des t
 - **Historisation Complète :** Conservation de tous les anciens prix avec date d'effet et référence produit pour tracer l'évolution dans le temps.
 - **Tableau de Bord Web :** Recherche instantanée par pays, opérateur, indicatif ou code MCC/MNC, avec courbes de tendance interactives (Canvas HTML5).
 - **Module Facturation :** Exportation en un clic au format CSV compatible Microsoft Excel FR (séparateur `;`, encodage UTF-8 BOM) avec calcul de marge commerciale personnalisable.
-- **Zéro Dépendance Externe :** Conçu avec les modules natifs Node.js (`http`, `fs`, `path`, `url`), garantissant un démarrage instantané et aucune dépendance à des proxys d'entreprise.
+- **Moteur Graphique Avancé Python :** Module d'analyse avec `pandas`, `matplotlib` et `seaborn` produisant des graphiques haute définition 300 DPI pour les comités et le pôle facturation.
+- **Zéro Dépendance Externe Obligatoire pour le Web :** Le serveur HTTP et l'API fonctionnent sur les modules natifs Node.js (`http`, `fs`, `path`).
 
 ---
 
@@ -30,6 +31,7 @@ Solution légère et autonome de gestion, d'historisation et d'exportation des t
 dmc-sms-pricing/
 ├── .gitignore                    # Fichiers exclus du versionnement
 ├── package.json                  # Métadonnées et scripts npm
+├── requirements.txt              # Dépendances Python (pandas, matplotlib, seaborn)
 ├── README.md                     # Guide général du projet
 │
 ├── data/
@@ -43,6 +45,9 @@ dmc-sms-pricing/
 │   ├── EXPRESSION_BESOIN_DMC.md  # EB complète pour cadrage avec Gabriel
 │   └── MODOP_FACTURATION.md      # Mode opératoire détaillé pour l'équipe facturation
 │
+├── scripts/
+│   └── generate_charts.py        # Moteur graphique Python (Seaborn / Matplotlib)
+│
 ├── src/
 │   ├── ingest.js                 # Moteur d'ingestion et de calcul des deltas
 │   ├── export.js                 # Moteur d'exportation Excel pour la facturation
@@ -50,7 +55,8 @@ dmc-sms-pricing/
 │   └── public/                   # Interface utilisateur web
 │       ├── index.html            # Dashboard HTML5
 │       ├── styles.css            # Charte graphique SFR Business
-│       └── app.js                # Logique UI et moteur de graphes Canvas
+│       ├── app.js                # Logique UI et moteur de graphes Canvas
+│       └── charts/               # Images PNG haute résolution générées par Python
 │
 └── test/
     └── run-tests.js              # Suite de tests unitaires et d'intégration
@@ -61,7 +67,8 @@ dmc-sms-pricing/
 ## 3. Démarrage Rapide en Local
 
 ### Prérequis
-- Node.js (version 18 ou supérieure). Aucun `npm install` requis.
+- Node.js (version 18 ou supérieure).
+- (Optionnel) Python 3 avec `pip install -r requirements.txt` pour générer les graphiques haute résolution.
 
 ### Commandes principales
 ```bash
@@ -74,10 +81,13 @@ node src/ingest.js data/base_tarifs.csv
 # 3. Appliquer un fichier de notification de prix Sinch
 node src/ingest.js data/updates/PriceChangeNotification_sample.csv
 
-# 4. Générer un export facturation (ex: avec 15% de marge)
+# 4. Générer les graphiques Python (si Python 3 est installé)
+npm run charts
+
+# 5. Générer un export facturation (ex: avec 15% de marge)
 node src/export.js --margin=15
 
-# 5. Démarrer le serveur web
+# 6. Démarrer le serveur web
 npm start
 # L'interface est alors accessible sur : http://localhost:3000
 ```

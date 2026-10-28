@@ -17,9 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalExport = document.getElementById('modal-export');
   const modalUpload = document.getElementById('modal-upload');
   const modalChart = document.getElementById('modal-chart');
+  const modalPythonCharts = document.getElementById('modal-python-charts');
   const btnOpenExport = document.getElementById('btn-open-export');
   const btnOpenUpload = document.getElementById('btn-open-upload');
+  const btnOpenCharts = document.getElementById('btn-open-charts');
   const btnTriggerDownload = document.getElementById('btn-trigger-download');
+  const btnTriggerPyGenerate = document.getElementById('btn-trigger-py-generate');
+  const pyChartsGallery = document.getElementById('py-charts-gallery');
+  const pyGenerateStatus = document.getElementById('py-generate-status');
   const exportMarginInput = document.getElementById('export-margin');
   const exportCountryInput = document.getElementById('export-country');
 
@@ -61,6 +66,67 @@ document.addEventListener('DOMContentLoaded', () => {
     resetUploadModal();
     openModal(modalUpload);
   });
+  btnOpenCharts.addEventListener('click', () => {
+    openModal(modalPythonCharts);
+    loadPythonCharts();
+  });
+
+  btnTriggerPyGenerate.addEventListener('click', async () => {
+    btnTriggerPyGenerate.disabled = true;
+    btnTriggerPyGenerate.textContent = 'Génération en cours...';
+    pyGenerateStatus.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/charts/generate', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        pyGenerateStatus.className = 'alert alert-success';
+        pyGenerateStatus.textContent = 'Graphiques Python régénérés avec succès !';
+        pyGenerateStatus.style.display = 'block';
+        loadPythonCharts();
+      } else {
+        pyGenerateStatus.className = 'alert alert-danger';
+        pyGenerateStatus.textContent = data.message || 'Erreur lors de la génération Python';
+        pyGenerateStatus.style.display = 'block';
+      }
+    } catch (err) {
+      pyGenerateStatus.className = 'alert alert-danger';
+      pyGenerateStatus.textContent = `Erreur réseau : ${err.message}`;
+      pyGenerateStatus.style.display = 'block';
+    } finally {
+      btnTriggerPyGenerate.disabled = false;
+      btnTriggerPyGenerate.textContent = '⚡ Régénérer les graphiques avec Python';
+    }
+  });
+
+  async function loadPythonCharts() {
+    pyChartsGallery.innerHTML = '<p class="text-center text-muted">Recherche des graphiques générés...</p>';
+    try {
+      const res = await fetch('/api/charts/list');
+      const { charts } = await res.json();
+
+      if (!charts || charts.length === 0) {
+        pyChartsGallery.innerHTML = `
+          <div class="alert alert-info">
+            Aucun graphique Python n'a encore été généré. Cliquez sur le bouton ci-dessus pour lancer le script Python (nécessite Python 3 avec pandas & matplotlib).
+          </div>
+        `;
+        return;
+      }
+
+      pyChartsGallery.innerHTML = charts.map(c => `
+        <div class="py-chart-card" style="background:#FFFFFF; border:1px solid #E2E6EC; border-radius:8px; padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h4 style="margin:0; font-size:14px; color:#1C2024;">${escapeHTML(c.title)}</h4>
+            <a href="${c.url}" download="${c.name}" class="btn btn-ghost btn-sm">💾 Télécharger HD</a>
+          </div>
+          <img src="${c.url}?t=${Date.now()}" alt="${escapeHTML(c.title)}" style="width:100%; height:auto; border-radius:6px; border:1px solid #E2E6EC; display:block;">
+        </div>
+      `).join('');
+    } catch (err) {
+      pyChartsGallery.innerHTML = `<p class="text-center text-danger">Erreur : ${err.message}</p>`;
+    }
+  }
 
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => {
