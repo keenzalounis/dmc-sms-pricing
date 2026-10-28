@@ -10,35 +10,26 @@ const path = require('path');
 
 const {
   parseCSV,
+  parsePrice,
   normalizeDate,
   buildRecordKey,
   ingestRows,
-  loadDatabase
+  loadDatabase,
+  listDatabaseArchives,
+  getDatabaseArchive,
+  ingestCSVContent
 } = require('../src/ingest');
 
 const { getBillingData, toCSV } = require('../src/export');
 
-const {
-  getSinchConfig,
-  saveSinchConfig,
-  getMockSinchRates,
-  fetchSinchRates,
-  syncSinchPricing,
-  getSinchApiStatus
-} = require('../src/sinch-api');
-
 // Sauvegarde de database.json avant les tests pour isolation
 const dbPath = path.join(__dirname, '..', 'data', 'database.json');
-const sinchConfigPath = path.join(__dirname, '..', 'data', 'sinch_config.json');
+const archivesPath = path.join(__dirname, '..', 'data', 'archives');
+const archiveFilesBeforeTests = fs.existsSync(archivesPath) ? new Set(fs.readdirSync(archivesPath)) : new Set();
 
 let dbBackup = null;
 if (fs.existsSync(dbPath)) {
   dbBackup = fs.readFileSync(dbPath, 'utf-8');
-}
-
-let sinchConfigBackup = null;
-if (fs.existsSync(sinchConfigPath)) {
-  sinchConfigBackup = fs.readFileSync(sinchConfigPath, 'utf-8');
 }
 
 let testsPassed = 0;
@@ -70,6 +61,24 @@ async function runTests() {
     assert.strictEqual(rows.length, 2);
     assert.strictEqual(rows[0].Country, 'France');
     assert.strictEqual(rows[0].Price, '0.025');
+  });
+
+  await it('Devrait parser les colonnes du fichier de base avec séparateur point-virgule et BOM', () => {
+    const csv = '\uFEFFCountry;Operator;Service type;Originator;MCC;MCC/MNC;Price;Currency\r\nFrance;Orange;SMS;SFR;208;01;0.025;EUR';
+    const rows = parseCSV(csv);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0]['MCC/MNC'], '01');
+    assert.strictEqual(rows[0]['Service type'], 'SMS');
+  });
+
+  await it('Devrait rejeter un CSV qui ne contient aucun tarif reconnu', () => {
+    assert.throws(() => ingestCSVContent('Pays,Nom\nFrance,Orange'), /Aucune ligne de tarif valide/);
+  });
+
+  await it('Devrait conserver les apostrophes de noms de pays et lire les décimales françaises', () => {
+    const rows = parseCSV("Country;Operator;Price\nCôte d'Ivoire;Orange;0,025");
+    assert.strictEqual(rows[0].Country, "Côte d'Ivoire");
+    assert.strictEqual(parsePrice(rows[0].Price), 0.025);
   });
 
   await it('Devrait gérer les guillemets et virgules internes', () => {
@@ -130,6 +139,26 @@ async function runTests() {
     assert(record.history.length >= 2, 'L\'historique doit contenir au moins 2 dates');
   });
 
+  await it('Devrait importer le format de base MCC/MNC et conserver une archive avant la mise à jour', () => {
+    const archivesBefore = new Set(listDatabaseArchives().map(archive => archive.filename));
+    const csv = 'Country,Operator,Service type,Originator,MCC,MCC/MNC,Price,Currency\nArchiveLand,Archive Mobile,SMS,Test,777,02,0.12,EUR';
+    ingestCSVContent(csv, 'base_tarifs_test.csv');
+
+    const db = loadDatabase();
+    const record = db.records['archiveland__archive_mobile__777_02'];
+    assert(record, 'Le tarif avec la colonne MCC/MNC doit être ingéré');
+    assert.strictEqual(record.serviceType, 'SMS');
+    assert.strictEqual(record.originator, 'Test');
+    assert.strictEqual(record.currency, 'EUR');
+    const newArchive = listDatabaseArchives().find(archive =>
+      !archivesBefore.has(archive.filename) && archive.source === 'base_tarifs_test.csv'
+    );
+    assert(newArchive, 'Le référentiel précédent doit être archivé');
+    const archive = JSON.parse(getDatabaseArchive(newArchive.filename));
+    assert(archive.database.records, 'L’archive doit contenir l’ancienne base');
+    assert.strictEqual(archive.importedCsv, csv, 'L’archive doit conserver le CSV importé');
+  });
+
   // 3. Test Export Facturation
   console.log('\n--- 3. Module Export Facturation ---');
 
@@ -149,83 +178,19 @@ async function runTests() {
     assert(csv.includes(';'), 'Le séparateur doit être le point-virgule');
   });
 
-  // 4. Test Intégration API Sinch
-  console.log('\n--- 4. Module Intégration API Sinch (Priorité 1bis DMC) ---');
-
-  await it('Devrait fournir des tarifs Sinch de simulation avec structure complète', () => {
-    const mockRates = getMockSinchRates();
-    assert(Array.isArray(mockRates));
-    assert(mockRates.length >= 10, 'Le catalogue mock doit contenir au moins 10 destinations');
-
-    const first = mockRates[0];
-    assert(first.country, 'Pays obligatoire');
-    assert(first.operator, 'Opérateur obligatoire');
-    assert(first.mcc, 'MCC obligatoire');
-    assert(first.mnc, 'MNC obligatoire');
-    assert(typeof first.price === 'number' && first.price > 0, 'Prix positif requis');
-  });
-
-  await it('Devrait filtrer les tarifs Sinch par nom de pays', async () => {
-    const res = await fetchSinchRates({ country: 'France', forceMock: true });
-    assert.strictEqual(res.isMock, true);
-    assert(res.rates.length >= 3, 'Au moins 3 opérateurs français attendus');
-    res.rates.forEach(r => {
-      assert.strictEqual(r.country, 'France');
-    });
-  });
-
-  await it('Devrait rapporter le statut de connexion API Sinch', () => {
-    const status = getSinchApiStatus();
-    assert('configured' in status);
-    assert('baseUrl' in status);
-    assert('timeoutMs' in status);
-    assert(typeof status.totalDestinations === 'number');
-  });
-
-  await it('Devrait synchroniser les tarifs Sinch API et alimenter la base de données', async () => {
-    const syncRes = await syncSinchPricing({ forceMock: true });
-    assert.strictEqual(syncRes.success, true);
-    assert(syncRes.totalFetched > 0);
-    assert(typeof syncRes.countCreated === 'number');
-    assert(typeof syncRes.countUpdated === 'number');
-
-    const db = loadDatabase();
-    assert(db.meta.lastSinchApiSync !== null, 'Date de synchro API enregistrée');
-    assert(db.meta.lastSyncSource.includes('sinch'), 'Source Sinch enregistrée');
-
-    // Vérifier l'existence d'une destination spécifique provenant du mock
-    const key = buildRecordKey('France', 'SFR', '208', '10');
-    assert(db.records[key], 'Destination France SFR présente');
-    assert.strictEqual(db.records[key].currentPrice, 0.025);
-  });
-
-  await it('Devrait sauvegarder et recharger la configuration Sinch', () => {
-    const testConfig = {
-      servicePlanId: 'test_plan_12345',
-      apiToken: 'secret_token_abcde',
-      baseUrl: 'https://sms.api.sinch.com',
-      timeoutMs: 8000,
-      useMockFallback: true
-    };
-    saveSinchConfig(testConfig);
-    const loaded = getSinchConfig();
-    assert.strictEqual(loaded.servicePlanId, 'test_plan_12345');
-    assert.strictEqual(loaded.apiToken, 'secret_token_abcde');
-    assert.strictEqual(loaded.timeoutMs, 8000);
-  });
-
   console.log('\n========================================');
   console.log(`Résultats : ${testsPassed} passés, ${testsFailed} échoués`);
   console.log('========================================\n');
 
-  // Restauration de database.json et config
+  // Restauration de database.json et nettoyage des archives de test
   if (dbBackup !== null) {
     fs.writeFileSync(dbPath, dbBackup, 'utf-8');
   }
-  if (sinchConfigBackup !== null) {
-    fs.writeFileSync(sinchConfigPath, sinchConfigBackup, 'utf-8');
-  } else if (fs.existsSync(sinchConfigPath)) {
-    fs.unlinkSync(sinchConfigPath);
+  if (fs.existsSync(archivesPath)) {
+    for (const filename of fs.readdirSync(archivesPath)) {
+      if (!archiveFilesBeforeTests.has(filename)) fs.unlinkSync(path.join(archivesPath, filename));
+    }
+    if (fs.readdirSync(archivesPath).length === 0) fs.rmdirSync(archivesPath);
   }
 
   if (testsFailed > 0) {

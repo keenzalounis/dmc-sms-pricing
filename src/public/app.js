@@ -18,33 +18,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalUpload = document.getElementById('modal-upload');
   const modalChart = document.getElementById('modal-chart');
   const modalPythonCharts = document.getElementById('modal-python-charts');
-  const modalSinch = document.getElementById('modal-sinch');
+  const modalArchives = document.getElementById('modal-archives');
   const btnOpenExport = document.getElementById('btn-open-export');
-  const btnOpenUpload = document.getElementById('btn-open-upload');
+  const btnOpenUpdate = document.getElementById('btn-open-update');
+  const btnOpenArchives = document.getElementById('btn-open-archives');
   const btnOpenCharts = document.getElementById('btn-open-charts');
-  const btnOpenSinch = document.getElementById('btn-open-sinch');
   const btnTriggerDownload = document.getElementById('btn-trigger-download');
   const btnTriggerPyGenerate = document.getElementById('btn-trigger-py-generate');
   const pyChartsGallery = document.getElementById('py-charts-gallery');
   const pyGenerateStatus = document.getElementById('py-generate-status');
   const exportMarginInput = document.getElementById('export-margin');
   const exportCountryInput = document.getElementById('export-country');
-
-  // Sinch Modal elements
-  const sinchStatusBadge = document.getElementById('sinch-status-badge');
-  const sinchStatusPlan = document.getElementById('sinch-status-plan');
-  const sinchStatusUrl = document.getElementById('sinch-status-url');
-  const sinchStatusLastDate = document.getElementById('sinch-status-last-date');
-  const sinchForceMock = document.getElementById('sinch-force-mock');
-  const sinchSyncResult = document.getElementById('sinch-sync-result');
-  const btnTriggerSinchSync = document.getElementById('btn-trigger-sinch-sync');
-  const btnToggleSinchConfig = document.getElementById('btn-toggle-sinch-config');
-  const sinchConfigSection = document.getElementById('sinch-config-section');
-  const cfgServicePlanId = document.getElementById('cfg-service-plan-id');
-  const cfgApiToken = document.getElementById('cfg-api-token');
-  const cfgBaseUrl = document.getElementById('cfg-base-url');
-  const btnSaveSinchConfig = document.getElementById('btn-save-sinch-config');
-  const sinchConfigStatus = document.getElementById('sinch-config-status');
 
   // Upload
   const dropZone = document.getElementById('drop-zone');
@@ -53,11 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSendUpload = document.getElementById('btn-send-upload');
   const uploadStatus = document.getElementById('upload-status');
   let selectedFileContent = null;
+  let selectedFileName = '';
 
-  // Chart modal
+  // Price history modal
   const chartTitle = document.getElementById('chart-title');
   const chartSubtitle = document.getElementById('chart-subtitle');
-  const priceCanvas = document.getElementById('price-canvas');
   const historyTbody = document.getElementById('history-tbody');
 
   // --- Initialisation ---
@@ -80,126 +64,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Modals Open / Close
   btnOpenExport.addEventListener('click', () => openModal(modalExport));
-  btnOpenUpload.addEventListener('click', () => {
+  btnOpenUpdate.addEventListener('click', () => {
     resetUploadModal();
     openModal(modalUpload);
+  });
+  btnOpenArchives.addEventListener('click', () => {
+    openModal(modalArchives);
+    loadArchives();
   });
   btnOpenCharts.addEventListener('click', () => {
     openModal(modalPythonCharts);
     loadPythonCharts();
   });
-  btnOpenSinch.addEventListener('click', () => {
-    openModal(modalSinch);
-    loadSinchStatus();
-  });
-
-  btnToggleSinchConfig.addEventListener('click', () => {
-    sinchConfigSection.style.display = sinchConfigSection.style.display === 'none' ? 'block' : 'none';
-  });
-
-  async function loadSinchStatus() {
-    try {
-      const res = await fetch('/api/sinch/status');
-      const data = await res.json();
-      if (data.configured) {
-        sinchStatusBadge.className = 'badge badge-success';
-        sinchStatusBadge.textContent = '● En direct Sinch API';
-      } else {
-        sinchStatusBadge.className = 'badge badge-warning';
-        sinchStatusBadge.textContent = '○ Bac à sable / Mock actif';
-      }
-      sinchStatusPlan.textContent = data.servicePlanId || 'Non configuré';
-      sinchStatusUrl.textContent = data.baseUrl || 'https://sms.api.sinch.com';
-      sinchStatusLastDate.textContent = data.lastSyncDate
-        ? new Date(data.lastSyncDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : 'Jamais synchronisé';
-      if (cfgBaseUrl && !cfgBaseUrl.value) cfgBaseUrl.value = data.baseUrl || '';
-    } catch (err) {
-      sinchStatusBadge.className = 'badge badge-danger';
-      sinchStatusBadge.textContent = 'Erreur statut';
-    }
-  }
-
-  btnSaveSinchConfig.addEventListener('click', async () => {
-    btnSaveSinchConfig.disabled = true;
-    sinchConfigStatus.style.display = 'none';
-    try {
-      const payload = {
-        servicePlanId: cfgServicePlanId.value,
-        apiToken: cfgApiToken.value,
-        baseUrl: cfgBaseUrl.value
-      };
-      const res = await fetch('/api/sinch/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        sinchConfigStatus.className = 'alert alert-success';
-        sinchConfigStatus.textContent = 'Identifiants enregistrés avec succès !';
-        sinchConfigStatus.style.display = 'block';
-        loadSinchStatus();
-      } else {
-        sinchConfigStatus.className = 'alert alert-danger';
-        sinchConfigStatus.textContent = data.message || 'Erreur lors de la sauvegarde';
-        sinchConfigStatus.style.display = 'block';
-      }
-    } catch (err) {
-      sinchConfigStatus.className = 'alert alert-danger';
-      sinchConfigStatus.textContent = `Erreur réseau : ${err.message}`;
-      sinchConfigStatus.style.display = 'block';
-    } finally {
-      btnSaveSinchConfig.disabled = false;
-    }
-  });
-
-  btnTriggerSinchSync.addEventListener('click', async () => {
-    btnTriggerSinchSync.disabled = true;
-    btnTriggerSinchSync.textContent = '⏳ Synchronisation en cours...';
-    sinchSyncResult.style.display = 'none';
-
-    try {
-      const res = await fetch('/api/sinch/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceMock: sinchForceMock.checked })
-      });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        const d = data.details;
-        sinchSyncResult.className = 'alert alert-success';
-        sinchSyncResult.innerHTML = `
-          <strong>Synchronisation réussie !</strong><br>
-          • Source : <code>${escapeHTML(d.source)}</code><br>
-          • Destinations reçues : <strong>${d.totalFetched}</strong><br>
-          • Nouvelles destinations : <strong>${d.countCreated}</strong> | Mises à jour : <strong>${d.countUpdated}</strong> | Inchangées : <strong>${d.countUnchanged}</strong>
-        `;
-        sinchSyncResult.style.display = 'block';
-
-        // Recharger les données du tableau et KPIs
-        loadKPIs();
-        loadPrices(searchInput.value);
-        loadSinchStatus();
-      } else {
-        sinchSyncResult.className = 'alert alert-danger';
-        sinchSyncResult.textContent = data.message || 'Échec de la synchronisation';
-        sinchSyncResult.style.display = 'block';
-      }
-    } catch (err) {
-      sinchSyncResult.className = 'alert alert-danger';
-      sinchSyncResult.textContent = `Erreur réseau : ${err.message}`;
-      sinchSyncResult.style.display = 'block';
-    } finally {
-      btnTriggerSinchSync.disabled = false;
-      btnTriggerSinchSync.textContent = '🔄 Lancer la Synchronisation';
-    }
-  });
-
   btnTriggerPyGenerate.addEventListener('click', async () => {
     btnTriggerPyGenerate.disabled = true;
-    btnTriggerPyGenerate.textContent = 'Génération en cours...';
+    btnTriggerPyGenerate.textContent = 'Génération en cours…';
     pyGenerateStatus.style.display = 'none';
 
     try {
@@ -212,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadPythonCharts();
       } else {
         pyGenerateStatus.className = 'alert alert-danger';
-        pyGenerateStatus.textContent = data.message || 'Erreur lors de la génération Python';
+        pyGenerateStatus.textContent = [data.message, data.details].filter(Boolean).join(' ');
         pyGenerateStatus.style.display = 'block';
       }
     } catch (err) {
@@ -221,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pyGenerateStatus.style.display = 'block';
     } finally {
       btnTriggerPyGenerate.disabled = false;
-      btnTriggerPyGenerate.textContent = '⚡ Régénérer les graphiques avec Python';
+      btnTriggerPyGenerate.textContent = 'Générer les graphiques';
     }
   });
 
@@ -229,12 +108,13 @@ document.addEventListener('DOMContentLoaded', () => {
     pyChartsGallery.innerHTML = '<p class="text-center text-muted">Recherche des graphiques générés...</p>';
     try {
       const res = await fetch('/api/charts/list');
+      if (!res.ok) throw new Error('Impossible de charger la liste des graphiques');
       const { charts } = await res.json();
 
       if (!charts || charts.length === 0) {
         pyChartsGallery.innerHTML = `
           <div class="alert alert-info">
-            Aucun graphique Python n'a encore été généré. Cliquez sur le bouton ci-dessus pour lancer le script Python (nécessite Python 3 avec pandas & matplotlib).
+            Aucun graphique n'est encore disponible. Générez-les avec Python 3 et les dépendances de <code>requirements.txt</code> installées sur ce serveur.
           </div>
         `;
         return;
@@ -251,6 +131,30 @@ document.addEventListener('DOMContentLoaded', () => {
       `).join('');
     } catch (err) {
       pyChartsGallery.innerHTML = `<p class="text-center text-danger">Erreur : ${err.message}</p>`;
+    }
+  }
+
+  async function loadArchives() {
+    const archivesTbody = document.getElementById('archives-tbody');
+    archivesTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chargement...</td></tr>';
+    try {
+      const res = await fetch('/api/archives');
+      if (!res.ok) throw new Error('Impossible de charger les archives');
+      const { archives } = await res.json();
+      if (!archives.length) {
+        archivesTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Aucune version archivée pour le moment.</td></tr>';
+        return;
+      }
+      archivesTbody.innerHTML = archives.map(archive => `
+        <tr>
+          <td>${new Date(archive.archivedAt).toLocaleString('fr-FR')}</td>
+          <td>${escapeHTML(archive.source)}</td>
+          <td>${archive.totalDestinations}</td>
+          <td><a class="btn btn-ghost btn-sm" href="/api/archives/${encodeURIComponent(archive.filename)}" download> Télécharger</a></td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      archivesTbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${escapeHTML(err.message)}</td></tr>`;
     }
   }
 
@@ -303,16 +207,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function handleFile(file) {
-    if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
+    if (!/\.(csv|txt)$/i.test(file.name)) {
       showUploadStatus('Veuillez sélectionner un fichier CSV ou TXT.', 'danger');
       return;
     }
+    selectedFileName = file.name;
     fileSelectedName.textContent = `Fichier prêt : ${file.name} (${(file.size / 1024).toFixed(1)} Ko)`;
-    btnSendUpload.disabled = false;
+    btnSendUpload.disabled = true;
 
     const reader = new FileReader();
     reader.onload = (e) => {
       selectedFileContent = e.target.result;
+      btnSendUpload.disabled = false;
+    };
+    reader.onerror = () => {
+      selectedFileContent = null;
+      showUploadStatus('Impossible de lire ce fichier.', 'danger');
     };
     reader.readAsText(file);
   }
@@ -325,15 +235,19 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'text/csv' },
+        headers: {
+          'Content-Type': 'text/csv',
+          'X-File-Name': encodeURIComponent(selectedFileName)
+        },
         body: selectedFileContent
       });
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         showUploadStatus(`Succès : ${data.details.countCreated} créés, ${data.details.countUpdated} mis à jour. Total actif : ${data.details.total}`, 'success');
         loadKPIs();
         loadPrices(searchInput.value);
+        loadArchives();
         setTimeout(() => { closeModal(modalUpload); }, 1800);
       } else {
         showUploadStatus(`Erreur : ${data.message}`, 'danger');
@@ -353,6 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSendUpload.textContent = "Lancer l'ingestion";
     uploadStatus.style.display = 'none';
     selectedFileContent = null;
+    selectedFileName = '';
     fileInput.value = '';
   }
 
@@ -415,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${r.validFrom || '-'}</td>
             <td>
               <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')">
-                📈 Graphe
+                Historique
               </button>
             </td>
           </tr>
@@ -455,132 +370,11 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
 
-      // Tracer le graphe sur Canvas
-      drawCanvasChart(data.history || []);
       openModal(modalChart);
     } catch (err) {
       alert(`Erreur historique : ${err.message}`);
     }
   };
-
-  // --- Moteur de tracé Canvas autonome pour les courbes ---
-  function drawCanvasChart(history) {
-    const ctx = priceCanvas.getContext('2d');
-    const width = priceCanvas.width;
-    const height = priceCanvas.height;
-
-    // Nettoyer
-    ctx.clearRect(0, 0, width, height);
-
-    if (history.length === 0) {
-      ctx.fillStyle = '#8892A0';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Aucun historique disponible', width / 2, height / 2);
-      return;
-    }
-
-    // Marges
-    const padLeft = 65;
-    const padRight = 35;
-    const padTop = 30;
-    const padBottom = 45;
-    const chartW = width - padLeft - padRight;
-    const chartH = height - padTop - padBottom;
-
-    // Min et Max prix
-    const prices = history.map(h => h.price);
-    let minP = Math.min(...prices);
-    let maxP = Math.max(...prices);
-
-    // Padding vertical de sécurité
-    if (minP === maxP) {
-      minP = minP * 0.8;
-      maxP = maxP * 1.2;
-    } else {
-      const margin = (maxP - minP) * 0.2;
-      minP = Math.max(0, minP - margin);
-      maxP = maxP + margin;
-    }
-
-    // Quadrillage horizontal & labels Y
-    const steps = 4;
-    ctx.strokeStyle = '#E2E6EC';
-    ctx.lineWidth = 1;
-    ctx.fillStyle = '#606873';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'right';
-
-    for (let i = 0; i <= steps; i++) {
-      const val = minP + ((maxP - minP) / steps) * i;
-      const y = padTop + chartH - (i / steps) * chartH;
-
-      ctx.beginPath();
-      ctx.moveTo(padLeft, y);
-      ctx.lineTo(width - padRight, y);
-      ctx.stroke();
-
-      ctx.fillText(`${val.toFixed(4)} €`, padLeft - 8, y + 4);
-    }
-
-    // Coordonnées des points
-    const points = history.map((h, idx) => {
-      const x = history.length === 1
-        ? padLeft + chartW / 2
-        : padLeft + (idx / (history.length - 1)) * chartW;
-      const y = padTop + chartH - ((h.price - minP) / (maxP - minP)) * chartH;
-      return { x, y, price: h.price, date: h.date };
-    });
-
-    // Remplissage sous la courbe (dégradé SFR Red)
-    if (points.length > 1) {
-      const gradient = ctx.createLinearGradient(0, padTop, 0, padTop + chartH);
-      gradient.addColorStop(0, 'rgba(226, 0, 26, 0.25)');
-      gradient.addColorStop(1, 'rgba(226, 0, 26, 0.0)');
-
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, padTop + chartH);
-      points.forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.lineTo(points[points.length - 1].x, padTop + chartH);
-      ctx.closePath();
-      ctx.fillStyle = gradient;
-      ctx.fill();
-    }
-
-    // Ligne principale de la courbe
-    ctx.beginPath();
-    ctx.strokeStyle = '#E2001A';
-    ctx.lineWidth = 3;
-    ctx.lineJoin = 'round';
-    points.forEach((p, idx) => {
-      if (idx === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    });
-    ctx.stroke();
-
-    // Dessin des points et labels
-    points.forEach(p => {
-      // Point blanc cerclé de rouge
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fill();
-      ctx.strokeStyle = '#E2001A';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-
-      // Label prix au-dessus
-      ctx.fillStyle = '#1C2024';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${p.price.toFixed(4)} €`, p.x, p.y - 10);
-
-      // Label date sous l'axe X
-      ctx.fillStyle = '#606873';
-      ctx.font = '10px sans-serif';
-      ctx.fillText(p.date, p.x, padTop + chartH + 18);
-    });
-  }
 
   function escapeHTML(str) {
     if (!str) return '';

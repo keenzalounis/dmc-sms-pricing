@@ -1,179 +1,71 @@
-# DMC SMS Pricing - Référentiel Tarifs Sinch & Facturation
+# DMC SMS Pricing
 
-Solution complète, légère et autonome de gestion, d'intégration en temps réel (API Sinch), d'historisation et d'exportation des tarifs SMS internationaux partenaires pour la plateforme **DMC SFR Business**.
+Application web interne de consultation des tarifs SMS internationaux Sinch, de suivi de leurs variations et d'export des tarifs pour le pôle Facturation.
 
----
+## Fonctionnalités actuelles
 
-## 📋 Table des Matières
+- Import manuel des fichiers CSV initiaux et des notifications tarifaires Sinch.
+- Prise en charge des colonnes de mise à jour (`Old Price`, `New Price`, `Valid From`) et du format de base (`Country`, `Operator`, `Service type`, `Originator`, `MCC`, `MCC/MNC`, `Price`, `Currency`).
+- Conservation de l'historique des prix par opérateur, ainsi qu'une archive téléchargeable du référentiel antérieur et du CSV importé à chaque import valide.
+- Recherche et consultation des tarifs depuis le tableau de bord.
+- Graphiques analytiques générés en Python : comparaison des tarifs moyens par pays (France mise en évidence) et évolution annuelle issue des historiques.
+- Export CSV pour la facturation.
 
-- [1. Fonctionnalités](#1-fonctionnalités)
-- [2. Architecture & Structure du Projet](#2-architecture--structure-du-projet)
-- [3. Démarrage Rapide en Local](#3-démarrage-rapide-en-local)
-- [4. Procédure de Déploiement sur la VM Ubuntu](#4-procédure-de-déploiement-sur-la-vm-ubuntu)
-- [5. Documentation Associée](#5-documentation-associée)
+**L'application n'interroge pas l'API Sinch.** L'API envisagée dans la première version concernait des tarifs, pas les données de consommation ou de facturation des SMS. Les mises à jour sont importées à partir de CSV. La lecture automatique d'une boîte mail dédiée n'est pas encore implémentée.
 
----
+La base de démonstration déjà présente dans le dépôt contient des données de tests issues de l'ancien mode mock. Avant tout usage métier, importer et valider le fichier de base tarifaire approuvé par Sinch ; ne pas considérer ces valeurs de démonstration comme des prix de production.
 
-## 1. Fonctionnalités
+## Prérequis
 
-- **Intégration API Sinch en Direct (Priorité 1bis DMC) :** Interrogation directe de l'API REST Sinch (`/xms/v1/{service_plan_id}/rates`) pour obtenir en temps réel les prix d'achat par pays/opérateur, avec fallback automatique vers le bac à sable (Mock) en environnement déconnecté ou de qualification.
-- **Ingestion & Normalisation CSV :** Double compatibilité assurée pour ingérer à la fois le catalogue initial (`base_tarifs.csv`) et les notifications de variation de prix envoyées par email (`PriceChangeNotification.csv`).
-- **Historisation Complète & Calcul de Deltas :** Conservation de tous les anciens prix avec date d'effet, référence produit et source pour tracer l'évolution dans le temps et justifier les prix auprès des clients.
-- **Tableau de Bord Web Interactif :** Recherche instantanée par pays, opérateur, indicatif ou code MCC/MNC, avec courbes de tendance interactives (Canvas HTML5).
-- **Module Facturation :** Exportation en un clic au format CSV compatible Microsoft Excel FR (séparateur `;`, encodage UTF-8 BOM) avec calcul paramétrable de la marge commerciale.
-- **Moteur Graphique Avancé Python :** Module d'analyse avec `pandas`, `matplotlib` et `seaborn` produisant des graphiques haute définition 300 DPI pour les comités et le pôle facturation.
-- **Zéro Dépendance Externe Obligatoire pour le Web :** Le serveur HTTP, l'API REST et le connecteur Sinch fonctionnent sur les modules natifs Node.js (`https`, `http`, `fs`, `path`).
+- Node.js 18 ou supérieur pour le serveur et les tests.
+- Python 3 et les dépendances de `requirements.txt` pour générer les graphiques. Le site et l'import CSV restent utilisables sans Python ; seule la génération des graphiques en dépend.
 
----
+## Démarrage local (Windows / PowerShell)
 
-## 2. Architecture & Structure du Projet
-
-```text
-dmc-sms-pricing/
-├── .gitignore                    # Fichiers exclus du versionnement
-├── package.json                  # Métadonnées et scripts npm
-├── requirements.txt              # Dépendances Python (pandas, matplotlib, seaborn)
-├── README.md                     # Guide général du projet
-│
-├── data/
-│   ├── base_tarifs.csv           # Catalogue tarifaire initial de référence
-│   ├── database.json             # Base de données locale (tarifs actuels + historique)
-│   ├── export_facturation.csv    # Dernier export généré pour la facturation
-│   └── updates/                  # Dossier des notifications Sinch reçues
-│       └── PriceChangeNotification_sample.csv
-│
-├── docs/
-│   ├── EXPRESSION_BESOIN_DMC.md  # EB complète pour cadrage avec Gabriel (v1.1)
-│   └── MODOP_FACTURATION.md      # Mode opératoire détaillé pour l'équipe facturation
-│
-├── scripts/
-│   └── generate_charts.py        # Moteur graphique Python (Seaborn / Matplotlib)
-│
-├── src/
-│   ├── sinch-api.js              # Connecteur direct API REST Sinch & Sync temps réel
-│   ├── ingest.js                 # Moteur d'ingestion et de calcul des deltas
-│   ├── export.js                 # Moteur d'exportation Excel pour la facturation
-│   ├── server.js                 # Serveur HTTP et API REST autonome
-│   └── public/                   # Interface utilisateur web
-│       ├── index.html            # Dashboard HTML5
-│       ├── styles.css            # Charte graphique SFR Business
-│       ├── app.js                # Logique UI, synchro Sinch et graphes Canvas
-│       └── charts/               # Images PNG haute résolution générées par Python
-│
-└── test/
-    └── run-tests.js              # Suite de tests unitaires et d'intégration
+```powershell
+cd C:\Users\TRETEC\dmc-sms-pricing
+npm.cmd test
+npm.cmd start
 ```
 
----
+Ouvrir ensuite <http://localhost:3000>. Garder la fenêtre du terminal ouverte tant que le serveur est utilisé ; `Ctrl+C` l'arrête.
 
-## 3. Démarrage Rapide en Local
+Pour générer les graphiques, installer les dépendances Python puis exécuter :
 
-### Prérequis
-- Node.js (version 18 ou supérieure).
-- (Optionnel) Python 3 avec `pip install -r requirements.txt` pour générer les graphiques haute résolution.
-
-### Commandes principales
-```bash
-# 1. Lancer la suite complète de tests (12 tests)
-npm test
-
-# 2. Synchroniser les tarifs depuis l'API Sinch (ou mode bac à sable)
-npm run sync:sinch:mock
-
-# 3. Réinitialiser la base avec le catalogue de base CSV (si souhaité)
-node src/ingest.js data/base_tarifs.csv
-
-# 4. Appliquer un fichier de notification de prix Sinch
-node src/ingest.js data/updates/PriceChangeNotification_sample.csv
-
-# 5. Générer les graphiques Python (si Python 3 est installé)
-npm run charts
-
-# 6. Générer un export facturation (ex: avec 15% de marge)
-node src/export.js --margin=15
-
-# 7. Démarrer le serveur web
-npm start
-# L'interface est alors accessible sur : http://localhost:3000
+```powershell
+python -m pip install -r requirements.txt
+npm.cmd run charts
 ```
 
----
+Sur Linux / VM Ubuntu, les commandes npm s'exécutent normalement avec `npm`.
 
-## 4. Procédure de Déploiement sur la VM Ubuntu
+## Import et archives
 
-### Étape 4.1 : Cloner le dépôt sur la VM Ubuntu
-Connectez-vous en SSH à votre machine virtuelle Ubuntu :
-```bash
-# Cloner le projet depuis GitHub
-git clone <URL_DU_DEPOT_GITHUB> /opt/dmc-sms-pricing
-cd /opt/dmc-sms-pricing
-```
+Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur valide les lignes de tarif, archive l'ancien référentiel avant l'application des données et garde le CSV importé dans l'archive JSON. Les archives sont consultables et téléchargeables depuis **Historique des versions**.
 
-### Étape 4.2 : Vérifier Node.js
-```bash
-node -v # Doit afficher v18+ (si absent : sudo apt update && sudo apt install -y nodejs)
-```
+Les archives et la base active sont enregistrées sous `data/`. Il faut donc inclure ce dossier dans les sauvegardes de la VM et éviter de le remplacer lors d'un déploiement.
 
-### Étape 4.3 : Configurer les Identifiants API Sinch (Optionnel)
-Créez ou renseignez vos variables d'environnement dans `/etc/environment` ou dans un fichier de configuration :
-```bash
-export SINCH_SERVICE_PLAN_ID="votre_service_plan_id"
-export SINCH_API_TOKEN="votre_cle_api_secrete"
-```
-*(Si non renseignés, la plateforme utilise automatiquement le mode Bac à sable / Simulation sans bloquer).*
+## Déploiement VM : prérequis opérationnels
 
-### Étape 4.4 : Configurer le service d'arrière-plan (systemd)
-Pour que l'application tourne en permanence et redémarre automatiquement en cas de reboot de la machine :
+La procédure de déploiement sur la VM de l'entreprise dépend de l'environnement SFR (réseau, accès, reverse proxy, HTTPS et authentification). Le serveur applicatif seul ne fournit pas d'authentification ; **ne pas l'exposer directement à Internet ou au réseau d'entreprise sans les protections et validations requises**. Le service peut être placé derrière le reverse proxy et le mécanisme d'authentification approuvés par l'entreprise.
 
-1. Créez le fichier de service :
-```bash
-sudo nano /etc/systemd/system/dmc-pricing.service
-```
+Avant le déploiement, vérifier notamment :
 
-2. Collez la configuration suivante :
-```ini
-[Unit]
-Description=DMC SMS Pricing Service SFR
-After=network.target
+1. Node.js 18+ et, pour les graphiques, Python 3 avec `pip install -r requirements.txt`.
+2. Le service démarre et reste actif après redémarrage de la VM.
+3. Le chemin de données persistant `data/` est sauvegardé et n'est pas écrasé par les mises à jour du code.
+4. L'accès navigateur est publié via le réseau interne / VPN, le HTTPS et l'authentification approuvés.
+5. Une procédure de mise à jour Git conserve la base et les archives, puis exécute `npm test`.
 
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/opt/dmc-sms-pricing
-ExecStart=/usr/bin/node /opt/dmc-sms-pricing/src/server.js
-Restart=always
-RestartSec=10
-Environment=PORT=3000
+## Automatisation future par email
 
-[Install]
-WantedBy=multi-user.target
-```
+Pour déclencher l'import dès réception d'une notification Sinch, il faudra préciser le fournisseur de la boîte générique, le mode d'accès autorisé (par exemple connecteur de messagerie ou flux d'automatisation approuvé), les règles de validation des expéditeurs/pièces jointes, et la politique de traitement des doublons et erreurs. Cette intégration n'est pas active dans la version actuelle ; aucun identifiant de messagerie n'est requis pour l'import manuel.
 
-3. Activez et démarrez le service :
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable dmc-pricing
-sudo systemctl start dmc-pricing
-sudo systemctl status dmc-pricing
-```
+## Fichiers utiles
 
-### Étape 4.5 : Planification de la synchronisation automatique (Crontab)
-Pour mettre à jour automatiquement les tarifs Sinch chaque lundi matin à 04h00 et régénérer l'export facturation :
-```bash
-crontab -e
-```
-Ajoutez :
-```cron
-0 4 * * 1 cd /opt/dmc-sms-pricing && npm run sync:sinch >> /var/log/dmc_sinch_sync.log 2>&1
-30 4 * * 1 cd /opt/dmc-sms-pricing && node src/export.js --margin=15 >> /var/log/dmc_export.log 2>&1
-```
-
-L'application est immédiatement accessible sur le réseau SFR à l'adresse :  
-`http://<IP_DE_LA_VM>:3000`
-
----
-
-## 5. Documentation Associée
-
-- **[docs/EXPRESSION_BESOIN_DMC.md](docs/EXPRESSION_BESOIN_DMC.md)** : Document formel d'Expression des Besoins (v1.1) avec le détail de l'intégration API Sinch et les points de cadrage pour Gabriel.
-- **[docs/MODOP_FACTURATION.md](docs/MODOP_FACTURATION.md)** : Mode opératoire exhaustif pour l'équipe Facturation, ADV et Contrôle de gestion (récupération des tarifs, application de la marge commerciale, export Excel FR).
+- `src/server.js` : serveur HTTP, API locale, import CSV, archives et export.
+- `src/ingest.js` : parsing, normalisation et historisation.
+- `src/public/` : interface web.
+- `scripts/generate_charts.py` : analyses Python.
+- `data/base_tarifs.csv` et `data/updates/` : exemples de données.
+- `docs/` : expression du besoin et mode opératoire.

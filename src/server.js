@@ -8,19 +8,18 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 
-const { loadDatabase, ingestCSVContent } = require('./ingest');
-const { getBillingData, toCSV } = require('./export');
 const {
-  getSinchConfig,
-  saveSinchConfig,
-  fetchSinchRates,
-  syncSinchPricing,
-  getSinchApiStatus
-} = require('./sinch-api');
+  loadDatabase,
+  ingestCSVContent,
+  listDatabaseArchives,
+  getDatabaseArchive
+} = require('./ingest');
+const { getBillingData, toCSV } = require('./export');
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const CHARTS_DIR = path.join(PUBLIC_DIR, 'charts');
 
@@ -40,7 +39,8 @@ const MIME_TYPES = {
 function sendJSON(res, statusCode, data) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-store'
   });
   res.end(JSON.stringify(data));
 }
@@ -52,10 +52,8 @@ function sendError(res, statusCode, message) {
 function formatChartTitle(filename) {
   const base = filename.replace(/\.(png|svg)$/, '');
   const titles = {
-    'top_variations': 'Variations Récentes des Tarifs (%)',
-    'price_by_country': 'Comparatif Tarifs d\'Achat par Destination',
-    'price_evolution_history': 'Évolution Chronologique dans le Temps',
-    'executive_report': 'Synthèse Exécutive Facturation (Dashboard Global)'
+    'average_price_by_country': 'Comparaison des tarifs moyens par pays',
+    'annual_price_evolution': 'Évolution annuelle des tarifs (France et autres pays)'
   };
   return titles[base] || base.replace(/_/g, ' ');
 }
@@ -170,7 +168,37 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5. GET /api/charts/list : Liste des graphiques Python disponibles
+  // 5. GET /api/archives : Versions précédentes du référentiel
+  if (pathname === '/api/archives' && method === 'GET') {
+    try {
+      sendJSON(res, 200, { archives: listDatabaseArchives() });
+    } catch (err) {
+      sendError(res, 500, `Erreur de lecture des archives : ${err.message}`);
+    }
+    return;
+  }
+
+  // 6. GET /api/archives/:filename : Téléchargement d'une version archivée
+  if (pathname.startsWith('/api/archives/') && method === 'GET') {
+    try {
+      const filename = decodeURIComponent(pathname.slice('/api/archives/'.length));
+      const archive = getDatabaseArchive(filename);
+      if (!archive) {
+        sendError(res, 404, 'Archive introuvable');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`
+      });
+      res.end(archive);
+    } catch (err) {
+      sendError(res, 400, `Impossible de télécharger cette archive : ${err.message}`);
+    }
+    return;
+  }
+
+  // 7. GET /api/charts/list : Liste des graphiques Python disponibles
   if (pathname === '/api/charts/list' && method === 'GET') {
     if (!fs.existsSync(CHARTS_DIR)) {
       sendJSON(res, 200, { charts: [] });
@@ -186,19 +214,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 6. POST /api/charts/generate : Déclenche la génération Python des graphes
+  // 8. POST /api/charts/generate : Déclenche la génération Python des graphes
   if (pathname === '/api/charts/generate' && method === 'POST') {
     const scriptPath = path.join(__dirname, '..', 'scripts', 'generate_charts.py');
-    const cmd = process.platform === 'win32'
-      ? `python "${scriptPath}"`
-      : `python3 "${scriptPath}"`;
-
-    exec(cmd, (error, stdout, stderr) => {
+    const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+    execFile(python, [scriptPath], { timeout: 120000 }, (error, stdout, stderr) => {
       if (error) {
         console.warn(`[PYTHON] Exécution échouée : ${stderr || error.message}`);
         sendJSON(res, 500, {
           success: false,
-          message: 'Échec de la génération Python (vérifier si python3 et pandas/matplotlib sont installés)',
+          message: 'Échec de la génération Python. Vérifiez Python 3 et les dépendances définies dans requirements.txt.',
           details: stderr || error.message
         });
         return;
@@ -212,7 +237,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 7. POST /api/upload : Ingestion d'un nouveau CSV (fichier complet ou différentiel)
+  // 9. POST /api/upload : Ingestion d'un nouveau CSV (fichier complet ou différentiel)
   if (pathname === '/api/upload' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -223,103 +248,24 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        // Si c'est du multipart (upload de formulaire standard), on extrait le contenu CSV
-        let csvContent = body;
-        if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
-          const match = body.match(/\r?\n\r?\n([\s\S]*?)\r?\n--/);
-          if (match && match[1]) {
-            csvContent = match[1];
-          }
-        }
-
-        const result = ingestCSVContent(csvContent, 'upload_web_interface.csv');
+        const uploadedName = req.headers['x-file-name']
+          ? path.basename(decodeURIComponent(req.headers['x-file-name']))
+          : 'upload_web_interface.csv';
+        const result = ingestCSVContent(body, uploadedName);
         sendJSON(res, 200, {
           success: true,
           message: 'Fichier ingéré avec succès',
           details: result
         });
       } catch (err) {
-        sendError(res, 500, `Erreur lors de l'ingestion : ${err.message}`);
+        sendError(res, err.statusCode || 500, `Erreur lors de l'ingestion : ${err.message}`);
       }
     });
     return;
   }
 
-  // 8. GET /api/sinch/status : État de la connexion API Sinch
-  if (pathname === '/api/sinch/status' && method === 'GET') {
-    const status = getSinchApiStatus();
-    sendJSON(res, 200, status);
-    return;
-  }
-
-  // 9. GET /api/sinch/rates : Consultation des prix en direct depuis Sinch API
-  if (pathname === '/api/sinch/rates' && method === 'GET') {
-    const country = query.country || null;
-    const forceMock = query.mock === 'true';
-
-    fetchSinchRates({ country, forceMock })
-      .then(result => {
-        sendJSON(res, 200, result);
-      })
-      .catch(err => {
-        sendError(res, err.statusCode || 502, `Erreur Sinch API : ${err.message}`);
-      });
-    return;
-  }
-
-  // 10. POST /api/sinch/sync : Synchronisation des prix Sinch vers database.json
-  if (pathname === '/api/sinch/sync' && method === 'POST') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      let options = {};
-      if (body) {
-        try {
-          options = JSON.parse(body);
-        } catch (e) {
-          // Si le corps n'est pas du JSON strict, on utilise les query params
-        }
-      }
-      const forceMock = options.forceMock !== undefined ? options.forceMock : (query.mock === 'true');
-      const country = options.country || query.country || null;
-
-      syncSinchPricing({ forceMock, country })
-        .then(result => {
-          sendJSON(res, 200, {
-            success: true,
-            message: 'Synchronisation avec Sinch API effectuée avec succès',
-            details: result
-          });
-        })
-        .catch(err => {
-          sendError(res, err.statusCode || 500, `Erreur lors de la synchronisation Sinch : ${err.message}`);
-        });
-    });
-    return;
-  }
-
-  // 11. POST /api/sinch/config : Mise à jour de la configuration API Sinch
-  if (pathname === '/api/sinch/config' && method === 'POST') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body || '{}');
-        const updated = saveSinchConfig(payload);
-        sendJSON(res, 200, {
-          success: true,
-          message: 'Configuration Sinch sauvegardée avec succès',
-          config: {
-            configured: Boolean(updated.servicePlanId && updated.apiToken),
-            baseUrl: updated.baseUrl,
-            timeoutMs: updated.timeoutMs,
-            useMockFallback: updated.useMockFallback
-          }
-        });
-      } catch (err) {
-        sendError(res, 400, `Payload invalide : ${err.message}`);
-      }
-    });
+  if (pathname.startsWith('/api/')) {
+    sendError(res, 404, 'Route API introuvable');
     return;
   }
 
@@ -346,19 +292,23 @@ const server = http.createServer((req, res) => {
         sendError(res, 404, 'Fichier non trouvé');
         return;
       }
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'no-store'
+      });
       res.end(content);
     });
   });
 });
 
 if (require.main === module) {
-  server.listen(PORT, () => {
+  server.listen(PORT, HOST, () => {
     console.log(`====================================================`);
     console.log(`🚀 DMC SMS Pricing - Serveur démarré avec succès !`);
     console.log(`👉 Interface Web : http://localhost:${PORT}`);
-    console.log(`👉 API Tarifs    : http://localhost:${PORT}/api/prices`);
-    console.log(`👉 API Sinch     : http://localhost:${PORT}/api/sinch/status`);
+    console.log(`👉 Écoute        : ${HOST}:${PORT}`);
+    console.log(`👉 Tarifs        : http://localhost:${PORT}/api/prices`);
+    console.log(`👉 Archives      : http://localhost:${PORT}/api/archives`);
     console.log(`👉 Export Factu  : http://localhost:${PORT}/api/export`);
     console.log(`====================================================`);
   });

@@ -4,8 +4,8 @@ node_modules/
 # Environment variables and sensitive configs
 .env
 .env.local
-data/sinch_config.json
 *.tmp
+data/archives/
 
 # Logs
 logs/

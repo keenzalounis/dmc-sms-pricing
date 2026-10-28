@@ -13,20 +13,22 @@ const path = require('path');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'database.json');
 const BASE_CSV_PATH = path.join(__dirname, '..', 'data', 'base_tarifs.csv');
+const ARCHIVES_DIR = path.join(__dirname, '..', 'data', 'archives');
 
 /**
  * Parseur CSV universel léger et robuste (sans dépendance externe).
  */
 function parseCSV(content) {
-  const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
+  const lines = content.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim().length > 0);
   if (lines.length === 0) return [];
 
-  const rawHeaders = splitCSVLine(lines[0]);
+  const delimiter = detectDelimiter(lines[0]);
+  const rawHeaders = splitCSVLine(lines[0], delimiter);
   const headers = rawHeaders.map(h => h.trim().replace(/^["']|["']$/g, ''));
 
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    const values = splitCSVLine(lines[i]);
+    const values = splitCSVLine(lines[i], delimiter);
     if (values.length === 0 || (values.length === 1 && values[0].trim() === '')) continue;
 
     const row = {};
@@ -40,16 +42,30 @@ function parseCSV(content) {
   return rows;
 }
 
-function splitCSVLine(line) {
+function detectDelimiter(headerLine) {
+  const candidates = [',', ';', '\t'];
+  return candidates.reduce((selected, delimiter) =>
+    splitCSVLine(headerLine, delimiter).length > splitCSVLine(headerLine, selected).length
+      ? delimiter
+      : selected
+  , candidates[0]);
+}
+
+function splitCSVLine(line, delimiter = ',') {
   const result = [];
   let current = '';
-  let insideQuote = false;
+  let quote = null;
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    if (char === '"' || char === "'") {
-      insideQuote = !insideQuote;
-    } else if (char === ',' && !insideQuote) {
+    if (char === '"' && (!quote || quote === char)) {
+      if (quote && line[i + 1] === char) {
+        current += char;
+        i++;
+      } else {
+        quote = quote ? null : char;
+      }
+    } else if (char === delimiter && !quote) {
       result.push(current);
       current = '';
     } else {
@@ -88,6 +104,16 @@ function normalizeDate(dateStr) {
     }
   }
   return trimmed;
+}
+
+function parsePrice(value) {
+  const normalized = String(value || '').trim().replace(/\s/g, '');
+  if (!normalized) return NaN;
+  const decimalComma = normalized.lastIndexOf(',') > normalized.lastIndexOf('.');
+  const standard = decimalComma
+    ? normalized.replace(/\./g, '').replace(',', '.')
+    : normalized.replace(/,/g, '');
+  return Number.parseFloat(standard);
 }
 
 /**
@@ -129,6 +155,57 @@ function saveDatabase(db) {
   fs.renameSync(tmpPath, DB_PATH);
 }
 
+function archiveDatabaseSnapshot(db, sourceName, sourceContent) {
+  if (!fs.existsSync(DB_PATH) || Object.keys(db.records).length === 0) return null;
+
+  fs.mkdirSync(ARCHIVES_DIR, { recursive: true });
+  const archivedAt = new Date().toISOString();
+  const timestamp = archivedAt.replace(/[-:.]/g, '');
+  const safeSource = path.basename(sourceName || 'import')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .slice(0, 80);
+  const baseFilename = `${timestamp}__${safeSource || 'import'}`;
+  let filename = `${baseFilename}.json`;
+  let suffix = 1;
+  while (fs.existsSync(path.join(ARCHIVES_DIR, filename))) {
+    filename = `${baseFilename}_${suffix++}.json`;
+  }
+  const archive = {
+    archivedAt,
+    source: sourceName || 'import',
+    database: db,
+    importedCsv: sourceContent || null
+  };
+  fs.writeFileSync(path.join(ARCHIVES_DIR, filename), JSON.stringify(archive, null, 2), 'utf-8');
+  return filename;
+}
+
+function listDatabaseArchives() {
+  if (!fs.existsSync(ARCHIVES_DIR)) return [];
+
+  return fs.readdirSync(ARCHIVES_DIR)
+    .filter(filename => filename.endsWith('.json'))
+    .map(filename => {
+      const archive = JSON.parse(fs.readFileSync(path.join(ARCHIVES_DIR, filename), 'utf-8'));
+      return {
+        filename,
+        archivedAt: archive.archivedAt,
+        source: archive.source,
+        totalDestinations: Object.keys(archive.database.records || {}).length
+      };
+    })
+    .sort((a, b) => b.archivedAt.localeCompare(a.archivedAt));
+}
+
+function getDatabaseArchive(filename) {
+  if (path.basename(filename) !== filename || !filename.endsWith('.json')) {
+    throw new Error('Nom d’archive invalide');
+  }
+  const archivePath = path.join(ARCHIVES_DIR, filename);
+  if (!fs.existsSync(archivePath)) return null;
+  return fs.readFileSync(archivePath, 'utf-8');
+}
+
 /**
  * Génère la clé unique télécom pour un opérateur
  */
@@ -143,10 +220,11 @@ function buildRecordKey(country, operator, mcc, mnc) {
 /**
  * Ingestion d'un flux de lignes (Base ou Notification)
  */
-function ingestRows(rows, sourceName = 'inconnu') {
+function ingestRows(rows, sourceName = 'inconnu', sourceContent = null) {
   const db = loadDatabase();
   let countUpdated = 0;
   let countCreated = 0;
+  let archived = false;
 
   for (const row of rows) {
     // Détecte le type de format (Base ou PriceChangeNotification)
@@ -154,27 +232,45 @@ function ingestRows(rows, sourceName = 'inconnu') {
 
     const country = row['Country'] || row['country'] || 'Inconnu';
     const operator = row['Operator'] || row['operator'] || 'Tous opérateurs';
+    if (country === 'Inconnu' || operator === 'Tous opérateurs') continue;
     const network = row['Network'] || row['network'] || operator;
     const cc = row['CC'] || row['cc'] || '';
-    const mcc = row['MCC'] || row['mcc'] || '';
-    const mnc = row['MNC'] || row['mnc'] || '';
+    let mcc = row['MCC'] || row['mcc'] || '';
+    let mnc = row['MNC'] || row['mnc'] || '';
+    const mccMnc = row['MCC/MNC'] || row['MCC / MNC'] || row['mcc_mnc'] || '';
+    if (mccMnc) {
+      const combined = mccMnc.trim().match(/^(\d{3})\s*[/.-]\s*(\d{1,3})$/);
+      if (combined) {
+        mcc = mcc || combined[1];
+        mnc = mnc || combined[2];
+      } else if (!mnc) {
+        mnc = mccMnc.trim();
+      }
+    }
     const product = row['Product'] || row['product'] || 'SFRBu_STANDARD';
+    const serviceType = row['Service type'] || row['Service Type'] || row['service_type'] || '';
+    const originator = row['Originator'] || row['originator'] || '';
 
     const key = buildRecordKey(country, operator, mcc, mnc);
 
     let newPrice, oldPrice, validFrom;
 
     if (isPriceChange) {
-      newPrice = parseFloat(row['New Price'] || row['new_price'] || 0);
-      oldPrice = parseFloat(row['Old Price'] || row['old_price'] || newPrice);
+      newPrice = parsePrice(row['New Price'] || row['new_price']);
+      oldPrice = parsePrice(row['Old Price'] || row['old_price'] || newPrice);
       validFrom = normalizeDate(row['Valid From'] || row['valid_from']);
+      if (!Number.isFinite(oldPrice) || oldPrice < 0) oldPrice = newPrice;
     } else {
-      newPrice = parseFloat(row['Price'] || row['price'] || 0);
+      newPrice = parsePrice(row['Price'] || row['price']);
       oldPrice = newPrice;
       validFrom = normalizeDate(row['EffectiveDate'] || row['date']);
     }
 
-    if (isNaN(newPrice)) continue;
+    if (!Number.isFinite(newPrice) || newPrice <= 0) continue;
+    if (!archived) {
+      archiveDatabaseSnapshot(db, sourceName, sourceContent);
+      archived = true;
+    }
 
     if (!db.records[key]) {
       // Nouvelle entrée
@@ -186,6 +282,9 @@ function ingestRows(rows, sourceName = 'inconnu') {
         cc,
         mcc,
         mnc,
+        serviceType,
+        originator,
+        currency: row['Currency'] || row['currency'] || 'EUR',
         product,
         currentPrice: newPrice,
         previousPrice: oldPrice,
@@ -226,6 +325,9 @@ function ingestRows(rows, sourceName = 'inconnu') {
       }
       record.validFrom = validFrom;
       record.product = product;
+      if (serviceType) record.serviceType = serviceType;
+      if (originator) record.originator = originator;
+      if (row['Currency'] || row['currency']) record.currency = row['Currency'] || row['currency'];
       if (network) record.network = network;
       if (cc) record.cc = cc;
 
@@ -246,7 +348,11 @@ function ingestRows(rows, sourceName = 'inconnu') {
       countUpdated++;
     }
   }
-
+  if (!archived) {
+    const error = new Error('Aucune ligne de tarif valide trouvée. Vérifiez le format et les colonnes du CSV.');
+    error.statusCode = 400;
+    throw error;
+  }
   saveDatabase(db);
   return { countCreated, countUpdated, total: Object.keys(db.records).length };
 }
@@ -261,7 +367,7 @@ function ingestFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const filename = path.basename(filePath);
   const rows = parseCSV(content);
-  return ingestRows(rows, filename);
+  return ingestRows(rows, filename, content);
 }
 
 /**
@@ -269,7 +375,12 @@ function ingestFile(filePath) {
  */
 function ingestCSVContent(csvString, sourceName = 'upload_manuel.csv') {
   const rows = parseCSV(csvString);
-  return ingestRows(rows, sourceName);
+  if (rows.length === 0) {
+    const error = new Error('Le fichier CSV est vide ou ne contient aucune ligne de données.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return ingestRows(rows, sourceName, csvString);
 }
 
 // Mode CLI autonome : node src/ingest.js [fichier.csv]
@@ -287,10 +398,13 @@ if (require.main === module) {
 
 module.exports = {
   parseCSV,
+  parsePrice,
   normalizeDate,
   buildRecordKey,
   loadDatabase,
   saveDatabase,
+  listDatabaseArchives,
+  getDatabaseArchive,
   ingestRows,
   ingestFile,
   ingestCSVContent
