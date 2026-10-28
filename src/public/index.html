@@ -19,6 +19,10 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="btn-open-sinch" class="btn btn-secondary">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.67A6.974 6.974 0 0 0 1 8c0 .17.007.337.02.5h2.488zm.312 2.5a12.28 12.28 0 0 1-.312-2.5H1.02c.032.877.204 1.719.497 2.5h2.291zm.743 2.5c-.328-.756-.554-1.603-.64-2.5H2.255a7.024 7.024 0 0 0 3.072 2.472 6.7 6.7 0 0 1-.597-.933 9.267 9.267 0 0 1-.64-1.539zm2.437.923V12H5.145c.429.62.923 1.258 1.468 1.623.552.37 1.217.3 1.887.3zM8.5 14.923c.67 0 1.335-.07 1.887-.3.545-.365 1.039-1.003 1.468-1.623H8.5v2.923zm0-3.923h2.355a12.28 12.28 0 0 0 .312-2.5H8.5V11zm2.667-3.5a12.28 12.28 0 0 0-.312-2.5H8.5V7.5h2.667zm-3.667-6.423V4h2.355A7.97 7.97 0 0 0 9.387 2.932C8.835 1.897 8.17 1.28 7.5 1.077zM11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.472 6.7 6.7 0 0 1 .597.933c.277.472.493 1.001.64 1.539zm.582 3.5H15c-.013-.163-.02-.33-.02-.5a6.974 6.974 0 0 0-.67-2.5h-2.152c.174.782.282 1.623.312 2.5zm-.312 2.5c.03-.877.138-1.718.312-2.5h2.152a6.974 6.974 0 0 1-.67 2.5h-1.794zm-.743 2.5c.147-.538.363-1.067.64-1.539.162-.276.368-.588.597-.933A7.025 7.025 0 0 1 11.91 12h-1.835c-.086.897-.312 1.744-.64 2.5z"/></svg>
+          🌐 API Sinch
+        </button>
         <button id="btn-open-charts" class="btn btn-secondary">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-4zm6-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7zm6-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/></svg>
           📊 Rapports Python
@@ -221,6 +225,74 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close="modal-python-charts">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SYNCHRONISATION API SINCH -->
+  <div id="modal-sinch" class="modal">
+    <div class="modal-dialog modal-md">
+      <div class="modal-header">
+        <div>
+          <h3>Synchronisation API Sinch</h3>
+          <span class="subtitle">Récupération automatique des tarifs SMS internationaux par pays</span>
+        </div>
+        <button class="modal-close" data-close="modal-sinch">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="sinch-status-card" style="background:var(--color-bg-light); padding:12px 16px; border-radius:6px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong>Statut connexion API :</strong>
+            <span id="sinch-status-badge" class="badge">Vérification...</span>
+          </div>
+          <div style="font-size:12px; color:var(--color-text-muted); line-height:1.6;">
+            <div>Service Plan ID : <span id="sinch-status-plan" style="font-family:monospace; font-weight:600;">-</span></div>
+            <div>URL API : <span id="sinch-status-url" style="font-family:monospace;">-</span></div>
+            <div>Dernière synchro : <span id="sinch-status-last-date">-</span></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="sinch-force-mock" style="width:16px; height:16px;">
+            <span style="font-size:13px;">Mode Simulation / Sandbox (sans appel réel aux serveurs Sinch)</span>
+          </label>
+        </div>
+
+        <div id="sinch-sync-result" class="alert" style="display:none; margin-bottom:16px;"></div>
+
+        <div class="sinch-actions" style="display:flex; gap:10px; margin-bottom:16px;">
+          <button id="btn-trigger-sinch-sync" class="btn btn-primary" style="flex:1;">
+            🔄 Lancer la Synchronisation
+          </button>
+          <button id="btn-toggle-sinch-config" class="btn btn-secondary">
+            ⚙️ Paramètres
+          </button>
+        </div>
+
+        <!-- Section configuration repliable -->
+        <div id="sinch-config-section" style="display:none; border-top:1px solid var(--color-border); padding-top:14px;">
+          <h4 style="margin-top:0; margin-bottom:10px; font-size:14px;">Configuration des Identifiants Sinch :</h4>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label for="cfg-service-plan-id" style="font-size:12px; font-weight:600;">Service Plan ID :</label>
+            <input type="text" id="cfg-service-plan-id" class="form-control" placeholder="ex: a1b2c3d4e5f6g7h8">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label for="cfg-api-token" style="font-size:12px; font-weight:600;">API Token / Clé secrète :</label>
+            <input type="password" id="cfg-api-token" class="form-control" placeholder="Clé API Sinch REST">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label for="cfg-base-url" style="font-size:12px; font-weight:600;">URL API Sinch :</label>
+            <input type="text" id="cfg-base-url" class="form-control" value="https://sms.api.sinch.com">
+          </div>
+          <button id="btn-save-sinch-config" class="btn btn-secondary btn-sm" style="width:100%;">
+            💾 Enregistrer la configuration
+          </button>
+          <div id="sinch-config-status" class="alert" style="display:none; margin-top:8px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-sinch">Fermer</button>
       </div>
     </div>
   </div>
