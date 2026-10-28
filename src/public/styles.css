@@ -330,6 +330,11 @@ body {
   color: var(--danger);
 }
 
+.badge-warning {
+  background-color: #FEF3C7;
+  color: #B45309;
+}
+
 .badge-neutral {
   background-color: #ECEFF3;
   color: var(--text-secondary);

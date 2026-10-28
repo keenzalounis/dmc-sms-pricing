@@ -12,6 +12,13 @@ const { exec } = require('child_process');
 
 const { loadDatabase, ingestCSVContent } = require('./ingest');
 const { getBillingData, toCSV } = require('./export');
+const {
+  getSinchConfig,
+  saveSinchConfig,
+  fetchSinchRates,
+  syncSinchPricing,
+  getSinchApiStatus
+} = require('./sinch-api');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -43,13 +50,14 @@ function sendError(res, statusCode, message) {
 }
 
 function formatChartTitle(filename) {
+  const base = filename.replace(/\.(png|svg)$/, '');
   const titles = {
-    'top_variations.png': 'Variations Récentes des Tarifs (%)',
-    'price_by_country.png': 'Comparatif Tarifs d\'Achat par Destination',
-    'price_evolution_history.png': 'Évolution Chronologique dans le Temps',
-    'executive_report.png': 'Synthèse Exécutive Facturation (Dashboard Global)'
+    'top_variations': 'Variations Récentes des Tarifs (%)',
+    'price_by_country': 'Comparatif Tarifs d\'Achat par Destination',
+    'price_evolution_history': 'Évolution Chronologique dans le Temps',
+    'executive_report': 'Synthèse Exécutive Facturation (Dashboard Global)'
   };
-  return titles[filename] || filename.replace(/_/g, ' ').replace('.png', '');
+  return titles[base] || base.replace(/_/g, ' ');
 }
 
 const server = http.createServer((req, res) => {
@@ -237,6 +245,84 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 8. GET /api/sinch/status : État de la connexion API Sinch
+  if (pathname === '/api/sinch/status' && method === 'GET') {
+    const status = getSinchApiStatus();
+    sendJSON(res, 200, status);
+    return;
+  }
+
+  // 9. GET /api/sinch/rates : Consultation des prix en direct depuis Sinch API
+  if (pathname === '/api/sinch/rates' && method === 'GET') {
+    const country = query.country || null;
+    const forceMock = query.mock === 'true';
+
+    fetchSinchRates({ country, forceMock })
+      .then(result => {
+        sendJSON(res, 200, result);
+      })
+      .catch(err => {
+        sendError(res, err.statusCode || 502, `Erreur Sinch API : ${err.message}`);
+      });
+    return;
+  }
+
+  // 10. POST /api/sinch/sync : Synchronisation des prix Sinch vers database.json
+  if (pathname === '/api/sinch/sync' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      let options = {};
+      if (body) {
+        try {
+          options = JSON.parse(body);
+        } catch (e) {
+          // Si le corps n'est pas du JSON strict, on utilise les query params
+        }
+      }
+      const forceMock = options.forceMock !== undefined ? options.forceMock : (query.mock === 'true');
+      const country = options.country || query.country || null;
+
+      syncSinchPricing({ forceMock, country })
+        .then(result => {
+          sendJSON(res, 200, {
+            success: true,
+            message: 'Synchronisation avec Sinch API effectuée avec succès',
+            details: result
+          });
+        })
+        .catch(err => {
+          sendError(res, err.statusCode || 500, `Erreur lors de la synchronisation Sinch : ${err.message}`);
+        });
+    });
+    return;
+  }
+
+  // 11. POST /api/sinch/config : Mise à jour de la configuration API Sinch
+  if (pathname === '/api/sinch/config' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const updated = saveSinchConfig(payload);
+        sendJSON(res, 200, {
+          success: true,
+          message: 'Configuration Sinch sauvegardée avec succès',
+          config: {
+            configured: Boolean(updated.servicePlanId && updated.apiToken),
+            baseUrl: updated.baseUrl,
+            timeoutMs: updated.timeoutMs,
+            useMockFallback: updated.useMockFallback
+          }
+        });
+      } catch (err) {
+        sendError(res, 400, `Payload invalide : ${err.message}`);
+      }
+    });
+    return;
+  }
+
   // --- SERVEUR DE FICHIERS STATIQUES (UI) ---
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
 
@@ -272,6 +358,7 @@ if (require.main === module) {
     console.log(`🚀 DMC SMS Pricing - Serveur démarré avec succès !`);
     console.log(`👉 Interface Web : http://localhost:${PORT}`);
     console.log(`👉 API Tarifs    : http://localhost:${PORT}/api/prices`);
+    console.log(`👉 API Sinch     : http://localhost:${PORT}/api/sinch/status`);
     console.log(`👉 Export Factu  : http://localhost:${PORT}/api/export`);
     console.log(`====================================================`);
   });

@@ -1,8 +1,10 @@
 {
   "meta": {
-    "lastUpdated": "2026-10-28T08:55:39.375Z",
+    "lastUpdated": "2026-10-28T10:16:23.021Z",
     "currency": "EUR",
-    "totalDestinations": 14
+    "totalDestinations": 21,
+    "lastSinchApiSync": "2026-10-28T10:16:23.021Z",
+    "lastSyncSource": "sinch_mock_sandbox"
   },
   "records": {
     "france__sfr__208_10": {
@@ -116,12 +118,12 @@
       "cc": "+34",
       "mcc": "214",
       "mnc": "07",
-      "product": "SFRBu_BASE_ES",
-      "currentPrice": 0.042,
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.0435,
       "previousPrice": 0.042,
-      "priceChange": 0,
-      "percentChange": 0,
-      "validFrom": "2026-01-01",
+      "priceChange": 0.0015,
+      "percentChange": 3.57,
+      "validFrom": "2026-10-28",
       "history": [
         {
           "date": "2026-01-01",
@@ -129,8 +131,16 @@
           "oldPrice": 0.042,
           "product": "SFRBu_BASE_ES",
           "source": "base_tarifs.csv"
+        },
+        {
+          "date": "2026-10-28",
+          "price": 0.0435,
+          "oldPrice": 0.042,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
         }
-      ]
+      ],
+      "lastSyncSource": "sinch_mock_sandbox"
     },
     "spain__vodafone_spain__214_01": {
       "id": "spain__vodafone_spain__214_01",
@@ -345,6 +355,181 @@
           "oldPrice": 0.082,
           "product": "SFRBu_BASE_MA",
           "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "france__free_mobile__208_15": {
+      "id": "france__free_mobile__208_15",
+      "country": "France",
+      "operator": "Free Mobile",
+      "network": "Free Mobile",
+      "cc": "+33",
+      "mcc": "208",
+      "mnc": "15",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.025,
+      "previousPrice": 0.025,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.025,
+          "oldPrice": 0.025,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
+        }
+      ]
+    },
+    "united_states__t_mobile_usa__310_260": {
+      "id": "united_states__t_mobile_usa__310_260",
+      "country": "United States",
+      "operator": "T-Mobile USA",
+      "network": "T-Mobile",
+      "cc": "+1",
+      "mcc": "310",
+      "mnc": "260",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.0195,
+      "previousPrice": 0.0195,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.0195,
+          "oldPrice": 0.0195,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
+        }
+      ]
+    },
+    "portugal__vodafone_portugal__268_01": {
+      "id": "portugal__vodafone_portugal__268_01",
+      "country": "Portugal",
+      "operator": "Vodafone Portugal",
+      "network": "Vodafone",
+      "cc": "+351",
+      "mcc": "268",
+      "mnc": "01",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.039,
+      "previousPrice": 0.039,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.039,
+          "oldPrice": 0.039,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
+        }
+      ]
+    },
+    "switzerland__swisscom__228_01": {
+      "id": "switzerland__swisscom__228_01",
+      "country": "Switzerland",
+      "operator": "Swisscom",
+      "network": "Swisscom Mobile",
+      "cc": "+41",
+      "mcc": "228",
+      "mnc": "01",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.054,
+      "previousPrice": 0.054,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.054,
+          "oldPrice": 0.054,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
+        }
+      ]
+    },
+    "canada__rogers_wireless__302_720": {
+      "id": "canada__rogers_wireless__302_720",
+      "country": "Canada",
+      "operator": "Rogers Wireless",
+      "network": "Rogers Communications",
+      "cc": "+1",
+      "mcc": "302",
+      "mnc": "720",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.021,
+      "previousPrice": 0.021,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.021,
+          "oldPrice": 0.021,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
+        }
+      ]
+    },
+    "senegal__orange_senegal__608_01": {
+      "id": "senegal__orange_senegal__608_01",
+      "country": "Senegal",
+      "operator": "Orange Senegal",
+      "network": "Sonatel",
+      "cc": "+221",
+      "mcc": "608",
+      "mnc": "01",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.089,
+      "previousPrice": 0.089,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.089,
+          "oldPrice": 0.089,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
+        }
+      ]
+    },
+    "ivory_coast__orange_ci__612_03": {
+      "id": "ivory_coast__orange_ci__612_03",
+      "country": "Ivory Coast",
+      "operator": "Orange CI",
+      "network": "Orange Cote d'Ivoire",
+      "cc": "+225",
+      "mcc": "612",
+      "mnc": "03",
+      "product": "SFRBu_API_REST_2026",
+      "currentPrice": 0.091,
+      "previousPrice": 0.091,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-10-28",
+      "lastSyncSource": "sinch_mock_sandbox",
+      "history": [
+        {
+          "date": "2026-10-28",
+          "price": 0.091,
+          "oldPrice": 0.091,
+          "product": "SFRBu_API_REST_2026",
+          "source": "sinch_api"
         }
       ]
     }

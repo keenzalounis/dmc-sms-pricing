@@ -18,15 +18,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalUpload = document.getElementById('modal-upload');
   const modalChart = document.getElementById('modal-chart');
   const modalPythonCharts = document.getElementById('modal-python-charts');
+  const modalSinch = document.getElementById('modal-sinch');
   const btnOpenExport = document.getElementById('btn-open-export');
   const btnOpenUpload = document.getElementById('btn-open-upload');
   const btnOpenCharts = document.getElementById('btn-open-charts');
+  const btnOpenSinch = document.getElementById('btn-open-sinch');
   const btnTriggerDownload = document.getElementById('btn-trigger-download');
   const btnTriggerPyGenerate = document.getElementById('btn-trigger-py-generate');
   const pyChartsGallery = document.getElementById('py-charts-gallery');
   const pyGenerateStatus = document.getElementById('py-generate-status');
   const exportMarginInput = document.getElementById('export-margin');
   const exportCountryInput = document.getElementById('export-country');
+
+  // Sinch Modal elements
+  const sinchStatusBadge = document.getElementById('sinch-status-badge');
+  const sinchStatusPlan = document.getElementById('sinch-status-plan');
+  const sinchStatusUrl = document.getElementById('sinch-status-url');
+  const sinchStatusLastDate = document.getElementById('sinch-status-last-date');
+  const sinchForceMock = document.getElementById('sinch-force-mock');
+  const sinchSyncResult = document.getElementById('sinch-sync-result');
+  const btnTriggerSinchSync = document.getElementById('btn-trigger-sinch-sync');
+  const btnToggleSinchConfig = document.getElementById('btn-toggle-sinch-config');
+  const sinchConfigSection = document.getElementById('sinch-config-section');
+  const cfgServicePlanId = document.getElementById('cfg-service-plan-id');
+  const cfgApiToken = document.getElementById('cfg-api-token');
+  const cfgBaseUrl = document.getElementById('cfg-base-url');
+  const btnSaveSinchConfig = document.getElementById('btn-save-sinch-config');
+  const sinchConfigStatus = document.getElementById('sinch-config-status');
 
   // Upload
   const dropZone = document.getElementById('drop-zone');
@@ -69,6 +87,114 @@ document.addEventListener('DOMContentLoaded', () => {
   btnOpenCharts.addEventListener('click', () => {
     openModal(modalPythonCharts);
     loadPythonCharts();
+  });
+  btnOpenSinch.addEventListener('click', () => {
+    openModal(modalSinch);
+    loadSinchStatus();
+  });
+
+  btnToggleSinchConfig.addEventListener('click', () => {
+    sinchConfigSection.style.display = sinchConfigSection.style.display === 'none' ? 'block' : 'none';
+  });
+
+  async function loadSinchStatus() {
+    try {
+      const res = await fetch('/api/sinch/status');
+      const data = await res.json();
+      if (data.configured) {
+        sinchStatusBadge.className = 'badge badge-success';
+        sinchStatusBadge.textContent = '● En direct Sinch API';
+      } else {
+        sinchStatusBadge.className = 'badge badge-warning';
+        sinchStatusBadge.textContent = '○ Bac à sable / Mock actif';
+      }
+      sinchStatusPlan.textContent = data.servicePlanId || 'Non configuré';
+      sinchStatusUrl.textContent = data.baseUrl || 'https://sms.api.sinch.com';
+      sinchStatusLastDate.textContent = data.lastSyncDate
+        ? new Date(data.lastSyncDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Jamais synchronisé';
+      if (cfgBaseUrl && !cfgBaseUrl.value) cfgBaseUrl.value = data.baseUrl || '';
+    } catch (err) {
+      sinchStatusBadge.className = 'badge badge-danger';
+      sinchStatusBadge.textContent = 'Erreur statut';
+    }
+  }
+
+  btnSaveSinchConfig.addEventListener('click', async () => {
+    btnSaveSinchConfig.disabled = true;
+    sinchConfigStatus.style.display = 'none';
+    try {
+      const payload = {
+        servicePlanId: cfgServicePlanId.value,
+        apiToken: cfgApiToken.value,
+        baseUrl: cfgBaseUrl.value
+      };
+      const res = await fetch('/api/sinch/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        sinchConfigStatus.className = 'alert alert-success';
+        sinchConfigStatus.textContent = 'Identifiants enregistrés avec succès !';
+        sinchConfigStatus.style.display = 'block';
+        loadSinchStatus();
+      } else {
+        sinchConfigStatus.className = 'alert alert-danger';
+        sinchConfigStatus.textContent = data.message || 'Erreur lors de la sauvegarde';
+        sinchConfigStatus.style.display = 'block';
+      }
+    } catch (err) {
+      sinchConfigStatus.className = 'alert alert-danger';
+      sinchConfigStatus.textContent = `Erreur réseau : ${err.message}`;
+      sinchConfigStatus.style.display = 'block';
+    } finally {
+      btnSaveSinchConfig.disabled = false;
+    }
+  });
+
+  btnTriggerSinchSync.addEventListener('click', async () => {
+    btnTriggerSinchSync.disabled = true;
+    btnTriggerSinchSync.textContent = '⏳ Synchronisation en cours...';
+    sinchSyncResult.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/sinch/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceMock: sinchForceMock.checked })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const d = data.details;
+        sinchSyncResult.className = 'alert alert-success';
+        sinchSyncResult.innerHTML = `
+          <strong>Synchronisation réussie !</strong><br>
+          • Source : <code>${escapeHTML(d.source)}</code><br>
+          • Destinations reçues : <strong>${d.totalFetched}</strong><br>
+          • Nouvelles destinations : <strong>${d.countCreated}</strong> | Mises à jour : <strong>${d.countUpdated}</strong> | Inchangées : <strong>${d.countUnchanged}</strong>
+        `;
+        sinchSyncResult.style.display = 'block';
+
+        // Recharger les données du tableau et KPIs
+        loadKPIs();
+        loadPrices(searchInput.value);
+        loadSinchStatus();
+      } else {
+        sinchSyncResult.className = 'alert alert-danger';
+        sinchSyncResult.textContent = data.message || 'Échec de la synchronisation';
+        sinchSyncResult.style.display = 'block';
+      }
+    } catch (err) {
+      sinchSyncResult.className = 'alert alert-danger';
+      sinchSyncResult.textContent = `Erreur réseau : ${err.message}`;
+      sinchSyncResult.style.display = 'block';
+    } finally {
+      btnTriggerSinchSync.disabled = false;
+      btnTriggerSinchSync.textContent = '🔄 Lancer la Synchronisation';
+    }
   });
 
   btnTriggerPyGenerate.addEventListener('click', async () => {

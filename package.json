@@ -8,6 +8,8 @@
     "start": "node src/server.js",
     "ingest": "node src/ingest.js",
     "export": "node src/export.js",
+    "sync:sinch": "node src/sinch-api.js --sync",
+    "sync:sinch:mock": "node src/sinch-api.js --sync --mock",
     "charts": "python3 scripts/generate_charts.py || python scripts/generate_charts.py",
     "test": "node test/run-tests.js"
   },
