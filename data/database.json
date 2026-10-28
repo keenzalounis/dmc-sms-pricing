@@ -1,0 +1,352 @@
+{
+  "meta": {
+    "lastUpdated": "2026-10-28T08:55:39.375Z",
+    "currency": "EUR",
+    "totalDestinations": 14
+  },
+  "records": {
+    "france__sfr__208_10": {
+      "id": "france__sfr__208_10",
+      "country": "France",
+      "operator": "SFR",
+      "network": "SFR",
+      "cc": "+33",
+      "mcc": "208",
+      "mnc": "10",
+      "product": "SFRBu_BASE_FR",
+      "currentPrice": 0.025,
+      "previousPrice": 0.025,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.025,
+          "oldPrice": 0.025,
+          "product": "SFRBu_BASE_FR",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "france__orange__208_01": {
+      "id": "france__orange__208_01",
+      "country": "France",
+      "operator": "Orange",
+      "network": "Orange",
+      "cc": "+33",
+      "mcc": "208",
+      "mnc": "01",
+      "product": "SFRBu_BASE_FR",
+      "currentPrice": 0.025,
+      "previousPrice": 0.025,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.025,
+          "oldPrice": 0.025,
+          "product": "SFRBu_BASE_FR",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "france__bouygues__208_20": {
+      "id": "france__bouygues__208_20",
+      "country": "France",
+      "operator": "Bouygues",
+      "network": "Bouygues Telecom",
+      "cc": "+33",
+      "mcc": "208",
+      "mnc": "20",
+      "product": "SFRBu_BASE_FR",
+      "currentPrice": 0.025,
+      "previousPrice": 0.025,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.025,
+          "oldPrice": 0.025,
+          "product": "SFRBu_BASE_FR",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "san_marino__san_marino_telecom__292_01": {
+      "id": "san_marino__san_marino_telecom__292_01",
+      "country": "San Marino",
+      "operator": "San Marino Telecom",
+      "network": "San Marino Telecom",
+      "cc": "+378",
+      "mcc": "292",
+      "mnc": "01",
+      "product": "SFRBu_20261008053302366_ra",
+      "currentPrice": 0.077,
+      "previousPrice": 0.0451,
+      "priceChange": 0.0319,
+      "percentChange": 70.73,
+      "validFrom": "2026-10-27",
+      "history": [
+        {
+          "date": "2026-09-01",
+          "price": 0.0451,
+          "oldPrice": 0.0451,
+          "product": "SFRBu_BASE_SM",
+          "source": "base_tarifs.csv"
+        },
+        {
+          "date": "2026-10-27",
+          "price": 0.077,
+          "oldPrice": 0.0451,
+          "product": "SFRBu_20260914193312096_ra",
+          "source": "PriceChangeNotification_sample.csv"
+        }
+      ]
+    },
+    "spain__telefonica_movistar__214_07": {
+      "id": "spain__telefonica_movistar__214_07",
+      "country": "Spain",
+      "operator": "Telefonica Movistar",
+      "network": "Telefonica",
+      "cc": "+34",
+      "mcc": "214",
+      "mnc": "07",
+      "product": "SFRBu_BASE_ES",
+      "currentPrice": 0.042,
+      "previousPrice": 0.042,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.042,
+          "oldPrice": 0.042,
+          "product": "SFRBu_BASE_ES",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "spain__vodafone_spain__214_01": {
+      "id": "spain__vodafone_spain__214_01",
+      "country": "Spain",
+      "operator": "Vodafone Spain",
+      "network": "Vodafone",
+      "cc": "+34",
+      "mcc": "214",
+      "mnc": "01",
+      "product": "SFRBu_BASE_ES",
+      "currentPrice": 0.042,
+      "previousPrice": 0.042,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.042,
+          "oldPrice": 0.042,
+          "product": "SFRBu_BASE_ES",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "italy__tim__222_01": {
+      "id": "italy__tim__222_01",
+      "country": "Italy",
+      "operator": "TIM",
+      "network": "Telecom Italia Mobile",
+      "cc": "+39",
+      "mcc": "222",
+      "mnc": "01",
+      "product": "SFRBu_BASE_IT",
+      "currentPrice": 0.048,
+      "previousPrice": 0.048,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.048,
+          "oldPrice": 0.048,
+          "product": "SFRBu_BASE_IT",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "italy__vodafone_italy__222_10": {
+      "id": "italy__vodafone_italy__222_10",
+      "country": "Italy",
+      "operator": "Vodafone Italy",
+      "network": "Vodafone Omnitel",
+      "cc": "+39",
+      "mcc": "222",
+      "mnc": "10",
+      "product": "SFRBu_BASE_IT",
+      "currentPrice": 0.049,
+      "previousPrice": 0.049,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.049,
+          "oldPrice": 0.049,
+          "product": "SFRBu_BASE_IT",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "germany__telekom_deutschland__262_01": {
+      "id": "germany__telekom_deutschland__262_01",
+      "country": "Germany",
+      "operator": "Telekom Deutschland",
+      "network": "Deutsche Telekom",
+      "cc": "+49",
+      "mcc": "262",
+      "mnc": "01",
+      "product": "SFRBu_BASE_DE",
+      "currentPrice": 0.051,
+      "previousPrice": 0.051,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.051,
+          "oldPrice": 0.051,
+          "product": "SFRBu_BASE_DE",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "germany__vodafone_germany__262_02": {
+      "id": "germany__vodafone_germany__262_02",
+      "country": "Germany",
+      "operator": "Vodafone Germany",
+      "network": "Vodafone D2",
+      "cc": "+49",
+      "mcc": "262",
+      "mnc": "02",
+      "product": "SFRBu_BASE_DE",
+      "currentPrice": 0.052,
+      "previousPrice": 0.052,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.052,
+          "oldPrice": 0.052,
+          "product": "SFRBu_BASE_DE",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "belgium__proximus__206_01": {
+      "id": "belgium__proximus__206_01",
+      "country": "Belgium",
+      "operator": "Proximus",
+      "network": "Belgacom Mobile",
+      "cc": "+32",
+      "mcc": "206",
+      "mnc": "01",
+      "product": "SFRBu_BASE_BE",
+      "currentPrice": 0.046,
+      "previousPrice": 0.046,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.046,
+          "oldPrice": 0.046,
+          "product": "SFRBu_BASE_BE",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "united_kingdom__ee__234_30": {
+      "id": "united_kingdom__ee__234_30",
+      "country": "United Kingdom",
+      "operator": "EE",
+      "network": "Everything Everywhere",
+      "cc": "+44",
+      "mcc": "234",
+      "mnc": "30",
+      "product": "SFRBu_BASE_UK",
+      "currentPrice": 0.043,
+      "previousPrice": 0.043,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.043,
+          "oldPrice": 0.043,
+          "product": "SFRBu_BASE_UK",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "united_states__at_t_mobility__310_410": {
+      "id": "united_states__at_t_mobility__310_410",
+      "country": "United States",
+      "operator": "AT&T Mobility",
+      "network": "AT&T",
+      "cc": "+1",
+      "mcc": "310",
+      "mnc": "410",
+      "product": "SFRBu_BASE_US",
+      "currentPrice": 0.019,
+      "previousPrice": 0.019,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.019,
+          "oldPrice": 0.019,
+          "product": "SFRBu_BASE_US",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    },
+    "morocco__maroc_telecom__604_01": {
+      "id": "morocco__maroc_telecom__604_01",
+      "country": "Morocco",
+      "operator": "Maroc Telecom",
+      "network": "Itissalat Al-Maghrib",
+      "cc": "+212",
+      "mcc": "604",
+      "mnc": "01",
+      "product": "SFRBu_BASE_MA",
+      "currentPrice": 0.082,
+      "previousPrice": 0.082,
+      "priceChange": 0,
+      "percentChange": 0,
+      "validFrom": "2026-01-01",
+      "history": [
+        {
+          "date": "2026-01-01",
+          "price": 0.082,
+          "oldPrice": 0.082,
+          "product": "SFRBu_BASE_MA",
+          "source": "base_tarifs.csv"
+        }
+      ]
+    }
+  }
+}

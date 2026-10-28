@@ -1,0 +1,15 @@
+﻿Pays;Operateur;Reseau;Indicatif_Tel;MCC;MNC;Tarif_Achat_Sinch_EUR;Marge_Appliquee_Pct;Tarif_Facture_Client_EUR;Variation_Recente_EUR;Variation_Recente_Pct;Date_Entree_Vigueur;Ref_Produit_Sinch
+Belgium;Proximus;Belgacom Mobile;+32;206;01;0.04600;0;0.04600;0.00000;0%;2026-01-01;SFRBu_BASE_BE
+France;Bouygues;Bouygues Telecom;+33;208;20;0.02500;0;0.02500;0.00000;0%;2026-01-01;SFRBu_BASE_FR
+France;Orange;Orange;+33;208;01;0.02500;0;0.02500;0.00000;0%;2026-01-01;SFRBu_BASE_FR
+France;SFR;SFR;+33;208;10;0.02500;0;0.02500;0.00000;0%;2026-01-01;SFRBu_BASE_FR
+Germany;Telekom Deutschland;Deutsche Telekom;+49;262;01;0.05100;0;0.05100;0.00000;0%;2026-01-01;SFRBu_BASE_DE
+Germany;Vodafone Germany;Vodafone D2;+49;262;02;0.05200;0;0.05200;0.00000;0%;2026-01-01;SFRBu_BASE_DE
+Italy;TIM;Telecom Italia Mobile;+39;222;01;0.04800;0;0.04800;0.00000;0%;2026-01-01;SFRBu_BASE_IT
+Italy;Vodafone Italy;Vodafone Omnitel;+39;222;10;0.04900;0;0.04900;0.00000;0%;2026-01-01;SFRBu_BASE_IT
+Morocco;Maroc Telecom;Itissalat Al-Maghrib;+212;604;01;0.08200;0;0.08200;0.00000;0%;2026-01-01;SFRBu_BASE_MA
+San Marino;San Marino Telecom;San Marino Telecom;+378;292;01;0.07700;0;0.07700;0.03190;70.73%;2026-10-27;SFRBu_20261008053302366_ra
+Spain;Telefonica Movistar;Telefonica;+34;214;07;0.04200;0;0.04200;0.00000;0%;2026-01-01;SFRBu_BASE_ES
+Spain;Vodafone Spain;Vodafone;+34;214;01;0.04200;0;0.04200;0.00000;0%;2026-01-01;SFRBu_BASE_ES
+United Kingdom;EE;Everything Everywhere;+44;234;30;0.04300;0;0.04300;0.00000;0%;2026-01-01;SFRBu_BASE_UK
+United States;AT&T Mobility;AT&T;+1;310;410;0.01900;0;0.01900;0.00000;0%;2026-01-01;SFRBu_BASE_US

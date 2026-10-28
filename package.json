@@ -1,0 +1,27 @@
+{
+  "name": "dmc-sms-pricing",
+  "version": "1.0.0",
+  "description": "DMC - Gestion et historisation des tarifs SMS internationaux Sinch pour facturation",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "ingest": "node src/ingest.js",
+    "export": "node src/export.js",
+    "test": "node test/run-tests.js"
+  },
+  "keywords": [
+    "dmc",
+    "sinch",
+    "sms",
+    "pricing",
+    "billing",
+    "sfr-business"
+  ],
+  "author": "SFR Business - Équipe DMC",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

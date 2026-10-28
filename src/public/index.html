@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMC - Référentiel Tarifs SMS Sinch | SFR Business</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- En-tête principal -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="logo-badge">SFR</div>
+        <div class="brand-text">
+          <h1>DMC SMS Pricing</h1>
+          <span class="subtitle">Référentiel Tarifs Internationaux Sinch & Facturation</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-open-upload" class="btn btn-secondary">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+          Importer un CSV Sinch
+        </button>
+        <button id="btn-open-export" class="btn btn-primary">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+          Export Facturation
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Barre de KPI -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-label">Destinations Couvertes</span>
+        <span class="kpi-value" id="kpi-total">-</span>
+        <span class="kpi-hint">Couples Pays / Opérateurs</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Prix Moyen SMS</span>
+        <span class="kpi-value" id="kpi-avg">-</span>
+        <span class="kpi-hint">Coût brut d'achat Sinch</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Dernières Hausses</span>
+        <span class="kpi-value text-danger" id="kpi-increases">-</span>
+        <span class="kpi-hint">Tarifs ayant augmenté récemment</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Dernière Synchronisation</span>
+        <span class="kpi-value text-small" id="kpi-date">-</span>
+        <span class="kpi-hint">Mise à jour catalogue</span>
+      </div>
+    </section>
+
+    <!-- Zone de recherche et filtres -->
+    <section class="table-section">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <svg class="search-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+          <input type="text" id="search-input" placeholder="Rechercher par pays, opérateur, indicatif (+378), MCC/MNC...">
+        </div>
+        <div class="filter-group">
+          <span id="results-count" class="results-badge">0 résultat</span>
+          <button id="btn-refresh" class="btn btn-ghost" title="Rafraîchir les données">🔄</button>
+        </div>
+      </div>
+
+      <!-- Tableau des prix -->
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Pays</th>
+              <th>Opérateur</th>
+              <th>Indicatif</th>
+              <th>MCC / MNC</th>
+              <th>Tarif Actuel (€)</th>
+              <th>Ancien Tarif (€)</th>
+              <th>Variation</th>
+              <th>Date d'effet</th>
+              <th>Historique</th>
+            </tr>
+          </thead>
+          <tbody id="prices-tbody">
+            <tr>
+              <td colspan="9" class="text-center text-muted">Chargement des données...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL EXPORT FACTURATION -->
+  <div id="modal-export" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Exportation pour le Pôle Facturation</h3>
+        <button class="modal-close" data-close="modal-export">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Ce module génère un fichier CSV prêt pour l'intégration ou l'ouverture directe dans Microsoft Excel (séparateur point-virgule et encodage UTF-8 BOM).</p>
+
+        <div class="form-group">
+          <label for="export-margin">Marge commerciale à appliquer (%) :</label>
+          <div class="input-with-addon">
+            <input type="number" id="export-margin" value="15" min="0" max="200" step="1">
+            <span class="addon">%</span>
+          </div>
+          <small class="form-hint">Ex: 15% ajoute 15% au prix brut Sinch pour le tarif facturé client.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="export-country">Filtrer par pays (laisser vide pour tout exporter) :</label>
+          <input type="text" id="export-country" placeholder="Ex: San Marino, Spain...">
+        </div>
+
+        <div class="alert alert-info">
+          <strong>Format de sortie :</strong> CSV compatible Excel avec colonnes <code>Pays</code>, <code>Operateur</code>, <code>Tarif_Achat_Sinch_EUR</code>, <code>Marge_Appliquee_Pct</code>, <code>Tarif_Facture_Client_EUR</code>, <code>Date_Entree_Vigueur</code>.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-export">Annuler</button>
+        <button id="btn-trigger-download" class="btn btn-primary">Télécharger le fichier CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORT FICHIER SINCH -->
+  <div id="modal-upload" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Importer un fichier de tarifs Sinch</h3>
+        <button class="modal-close" data-close="modal-upload">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Chargez ici un fichier initial complet (ex: <code>base_tarifs.csv</code>) ou une notification de variation de tarifs reçue par mail (ex: <code>PriceChangeNotification.csv</code>).</p>
+
+        <div id="drop-zone" class="drop-zone">
+          <div class="drop-zone-icon">📥</div>
+          <p class="drop-zone-text">Glissez-déposez votre fichier CSV ici ou</p>
+          <label for="file-input" class="btn btn-secondary">Parcourir les fichiers</label>
+          <input type="file" id="file-input" accept=".csv,.txt" style="display:none">
+          <p id="file-selected-name" class="file-name text-muted"></p>
+        </div>
+
+        <div id="upload-status" class="alert" style="display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-upload">Fermer</button>
+        <button id="btn-send-upload" class="btn btn-primary" disabled>Lancer l'ingestion</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GRAPHE ÉVOLUTION PRIX -->
+  <div id="modal-chart" class="modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="chart-title">Évolution du prix SMS</h3>
+          <span id="chart-subtitle" class="subtitle"></span>
+        </div>
+        <button class="modal-close" data-close="modal-chart">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="chart-container">
+          <canvas id="price-canvas" width="700" height="320"></canvas>
+        </div>
+        <div class="history-table-container">
+          <h4>Historique détaillé des variations :</h4>
+          <table class="data-table small">
+            <thead>
+              <tr>
+                <th>Date d'effet</th>
+                <th>Ancien Prix (€)</th>
+                <th>Nouveau Prix (€)</th>
+                <th>Évolution</th>
+                <th>Source / Fichier</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-chart">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

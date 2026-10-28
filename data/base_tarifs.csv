@@ -1,0 +1,15 @@
+Product,Country,Operator,Network,CC,MCC,MNC,Price,Currency,EffectiveDate
+SFRBu_BASE_FR,France,SFR,SFR,+33,208,10,0.02500,EUR,2026-01-01
+SFRBu_BASE_FR,France,Orange,Orange,+33,208,01,0.02500,EUR,2026-01-01
+SFRBu_BASE_FR,France,Bouygues,Bouygues Telecom,+33,208,20,0.02500,EUR,2026-01-01
+SFRBu_BASE_SM,San Marino,San Marino Telecom,San Marino Telecom,+378,292,01,0.04510,EUR,2026-09-01
+SFRBu_BASE_ES,Spain,Telefonica Movistar,Telefonica,+34,214,07,0.04200,EUR,2026-01-01
+SFRBu_BASE_ES,Spain,Vodafone Spain,Vodafone,+34,214,01,0.04200,EUR,2026-01-01
+SFRBu_BASE_IT,Italy,TIM,Telecom Italia Mobile,+39,222,01,0.04800,EUR,2026-01-01
+SFRBu_BASE_IT,Italy,Vodafone Italy,Vodafone Omnitel,+39,222,10,0.04900,EUR,2026-01-01
+SFRBu_BASE_DE,Germany,Telekom Deutschland,Deutsche Telekom,+49,262,01,0.05100,EUR,2026-01-01
+SFRBu_BASE_DE,Germany,Vodafone Germany,Vodafone D2,+49,262,02,0.05200,EUR,2026-01-01
+SFRBu_BASE_BE,Belgium,Proximus,Belgacom Mobile,+32,206,01,0.04600,EUR,2026-01-01
+SFRBu_BASE_UK,United Kingdom,EE,Everything Everywhere,+44,234,30,0.04300,EUR,2026-01-01
+SFRBu_BASE_US,United States,AT&T Mobility,AT&T,+1,310,410,0.01900,EUR,2026-01-01
+SFRBu_BASE_MA,Morocco,Maroc Telecom,Itissalat Al-Maghrib,+212,604,01,0.08200,EUR,2026-01-01
