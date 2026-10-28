@@ -1,0 +1,4 @@
+# Dépendances Python pour l'analyse de données et les graphiques DMC
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0

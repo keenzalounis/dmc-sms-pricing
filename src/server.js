@@ -8,12 +8,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
 
 const { loadDatabase, ingestCSVContent } = require('./ingest');
 const { getBillingData, toCSV } = require('./export');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const CHARTS_DIR = path.join(PUBLIC_DIR, 'charts');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -21,6 +23,9 @@ const MIME_TYPES = {
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.csv': 'text/csv; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon'
 };
@@ -35,6 +40,16 @@ function sendJSON(res, statusCode, data) {
 
 function sendError(res, statusCode, message) {
   sendJSON(res, statusCode, { error: true, message });
+}
+
+function formatChartTitle(filename) {
+  const titles = {
+    'top_variations.png': 'Variations Récentes des Tarifs (%)',
+    'price_by_country.png': 'Comparatif Tarifs d\'Achat par Destination',
+    'price_evolution_history.png': 'Évolution Chronologique dans le Temps',
+    'executive_report.png': 'Synthèse Exécutive Facturation (Dashboard Global)'
+  };
+  return titles[filename] || filename.replace(/_/g, ' ').replace('.png', '');
 }
 
 const server = http.createServer((req, res) => {
@@ -147,7 +162,49 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5. POST /api/upload : Ingestion d'un nouveau CSV (fichier complet ou différentiel)
+  // 5. GET /api/charts/list : Liste des graphiques Python disponibles
+  if (pathname === '/api/charts/list' && method === 'GET') {
+    if (!fs.existsSync(CHARTS_DIR)) {
+      sendJSON(res, 200, { charts: [] });
+      return;
+    }
+    const files = fs.readdirSync(CHARTS_DIR).filter(f => f.endsWith('.png') || f.endsWith('.svg'));
+    const charts = files.map(f => ({
+      name: f,
+      url: `/charts/${f}`,
+      title: formatChartTitle(f)
+    }));
+    sendJSON(res, 200, { count: charts.length, charts });
+    return;
+  }
+
+  // 6. POST /api/charts/generate : Déclenche la génération Python des graphes
+  if (pathname === '/api/charts/generate' && method === 'POST') {
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'generate_charts.py');
+    const cmd = process.platform === 'win32'
+      ? `python "${scriptPath}"`
+      : `python3 "${scriptPath}"`;
+
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) {
+        console.warn(`[PYTHON] Exécution échouée : ${stderr || error.message}`);
+        sendJSON(res, 500, {
+          success: false,
+          message: 'Échec de la génération Python (vérifier si python3 et pandas/matplotlib sont installés)',
+          details: stderr || error.message
+        });
+        return;
+      }
+      sendJSON(res, 200, {
+        success: true,
+        message: 'Graphiques Python générés avec succès !',
+        output: stdout
+      });
+    });
+    return;
+  }
+
+  // 7. POST /api/upload : Ingestion d'un nouveau CSV (fichier complet ou différentiel)
   if (pathname === '/api/upload' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
