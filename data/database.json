@@ -2,9 +2,7 @@
   "meta": {
     "lastUpdated": "2026-10-28T10:16:23.021Z",
     "currency": "EUR",
-    "totalDestinations": 21,
-    "lastSinchApiSync": "2026-10-28T10:16:23.021Z",
-    "lastSyncSource": "sinch_mock_sandbox"
+    "totalDestinations": 21
   },
   "records": {
     "france__sfr__208_10": {
