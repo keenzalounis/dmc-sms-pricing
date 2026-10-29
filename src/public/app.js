@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileSelectedName = document.getElementById('file-selected-name');
   const btnSendUpload = document.getElementById('btn-send-upload');
   const uploadStatus = document.getElementById('upload-status');
+  const mailSyncInfo = document.getElementById('mail-sync-info');
+  const mailSyncStatus = document.getElementById('mail-sync-status');
+  const btnTriggerMailSync = document.getElementById('btn-trigger-mail-sync');
   let selectedFileContent = null;
   let selectedFileName = '';
 
@@ -67,7 +70,69 @@ document.addEventListener('DOMContentLoaded', () => {
   btnOpenUpdate.addEventListener('click', () => {
     resetUploadModal();
     openModal(modalUpload);
+    loadMailSyncStatus();
   });
+
+  if (btnTriggerMailSync) {
+    btnTriggerMailSync.addEventListener('click', async () => {
+      btnTriggerMailSync.disabled = true;
+      btnTriggerMailSync.textContent = 'Relève en cours...';
+      if (mailSyncStatus) mailSyncStatus.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/mail/sync', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (mailSyncStatus) {
+            mailSyncStatus.className = 'alert alert-success';
+            let msg = data.message;
+            if (data.stats && data.stats.csvProcessed > 0) {
+              msg += ` (${data.stats.csvProcessed} fichier(s) CSV intégré(s))`;
+              loadKPIs();
+              loadPrices(searchInput.value);
+              loadArchives();
+            }
+            mailSyncStatus.textContent = msg;
+            mailSyncStatus.style.display = 'block';
+          }
+        } else {
+          if (mailSyncStatus) {
+            mailSyncStatus.className = 'alert alert-danger';
+            mailSyncStatus.textContent = data.message || 'Échec de la relève de la boîte mail.';
+            mailSyncStatus.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (mailSyncStatus) {
+          mailSyncStatus.className = 'alert alert-danger';
+          mailSyncStatus.textContent = `Erreur : ${err.message}`;
+          mailSyncStatus.style.display = 'block';
+        }
+      } finally {
+        btnTriggerMailSync.disabled = false;
+        btnTriggerMailSync.textContent = '🔄 Tester la relève maintenant';
+      }
+    });
+  }
+
+  async function loadMailSyncStatus() {
+    if (!mailSyncInfo) return;
+    if (mailSyncStatus) mailSyncStatus.style.display = 'none';
+    try {
+      const res = await fetch('/api/mail/status');
+      const data = await res.json();
+      if (!data.configured) {
+        mailSyncInfo.innerHTML = '⚠️ Boîte mail non configurée dans <code>data/mail_config.json</code>.';
+        if (btnTriggerMailSync) btnTriggerMailSync.disabled = true;
+      } else {
+        const nextDate = data.nextRun ? new Date(data.nextRun).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '02:00';
+        mailSyncInfo.innerHTML = `Compte : <strong>${escapeHTML(data.user)}</strong> • Prochaine relève : <strong>${nextDate}</strong>`;
+        if (btnTriggerMailSync) btnTriggerMailSync.disabled = false;
+      }
+    } catch (err) {
+      mailSyncInfo.textContent = 'Impossible de charger l\'état de la boîte mail.';
+    }
+  }
   btnOpenArchives.addEventListener('click', () => {
     openModal(modalArchives);
     loadArchives();

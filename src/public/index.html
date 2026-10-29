@@ -157,6 +157,23 @@
         </div>
 
         <div id="upload-status" class="alert" style="display:none"></div>
+
+        <div class="mail-sync-section" style="margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <strong style="font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                📬 Relève automatique de la boîte mail Sinch
+              </strong>
+              <div id="mail-sync-info" class="text-muted" style="font-size: 11px; margin-top: 3px;">
+                Planification : Chaque nuit à 02:00
+              </div>
+            </div>
+            <button id="btn-trigger-mail-sync" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">
+              🔄 Tester la relève maintenant
+            </button>
+          </div>
+          <div id="mail-sync-status" class="alert" style="display:none;"></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close="modal-upload">Fermer</button>
