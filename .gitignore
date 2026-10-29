@@ -4,6 +4,8 @@ node_modules/
 # Environment variables and sensitive configs
 .env
 .env.local
+data/mail_config.json
+data/sinch_config.json
 *.tmp
 data/archives/
 

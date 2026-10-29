@@ -17,6 +17,12 @@ const {
   getDatabaseArchive
 } = require('./ingest');
 const { getBillingData, toCSV } = require('./export');
+const {
+  loadMailConfig,
+  syncMailbox,
+  initNightlySyncScheduler,
+  calculateMsUntilNextSchedule
+} = require('./mail_sync');
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
@@ -264,6 +270,39 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 10. GET /api/mail/status : État de la configuration et de la planification email
+  if (pathname === '/api/mail/status' && method === 'GET') {
+    const config = loadMailConfig();
+    if (!config) {
+      sendJSON(res, 200, { configured: false, enabled: false });
+      return;
+    }
+    const hasPassword = Boolean(config.password && !config.password.includes('METTRE_ICI'));
+    const msUntilNext = calculateMsUntilNextSchedule(config.scheduleTime || '02:00');
+    const nextRun = new Date(Date.now() + msUntilNext).toISOString();
+    sendJSON(res, 200, {
+      configured: hasPassword,
+      enabled: Boolean(config.enabled),
+      user: config.user,
+      host: config.host || 'imap.gmail.com',
+      port: config.port || 993,
+      allowedSenders: config.allowedSenders || ['@sinch.com'],
+      scheduleTime: config.scheduleTime || '02:00',
+      nextRun
+    });
+    return;
+  }
+
+  // 11. POST /api/mail/sync : Déclenchement d'une synchronisation manuelle immédiate
+  if (pathname === '/api/mail/sync' && method === 'POST') {
+    syncMailbox().then(result => {
+      sendJSON(res, result.success ? 200 : 400, result);
+    }).catch(err => {
+      sendError(res, 500, `Erreur inattendue : ${err.message}`);
+    });
+    return;
+  }
+
   if (pathname.startsWith('/api/')) {
     sendError(res, 404, 'Route API introuvable');
     return;
@@ -311,6 +350,7 @@ if (require.main === module) {
     console.log(`👉 Archives      : http://localhost:${PORT}/api/archives`);
     console.log(`👉 Export Factu  : http://localhost:${PORT}/api/export`);
     console.log(`====================================================`);
+    initNightlySyncScheduler();
   });
 }
 

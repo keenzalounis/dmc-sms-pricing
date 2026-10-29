@@ -21,6 +21,13 @@ const {
 } = require('../src/ingest');
 
 const { getBillingData, toCSV } = require('../src/export');
+const {
+  isSenderAllowed,
+  extractCSVAttachments,
+  calculateMsUntilNextSchedule,
+  parseMIMEHeaders,
+  decodeQuotedPrintable
+} = require('../src/mail_sync');
 
 // Sauvegarde de database.json avant les tests pour isolation
 const dbPath = path.join(__dirname, '..', 'data', 'database.json');
@@ -176,6 +183,74 @@ async function runTests() {
     assert(csv.startsWith('﻿'), 'Le CSV doit inclure le BOM UTF-8');
     assert(csv.includes('Tarif_Facture_Client_EUR'), 'Le CSV doit contenir le header facturation');
     assert(csv.includes(';'), 'Le séparateur doit être le point-virgule');
+  });
+
+  // 4. Test Connecteur Email & Synchronisation Sinch
+  console.log('\n--- 4. Connecteur Mail Sinch & Planification Nocturne ---');
+
+  await it('Devrait filtrer strictement les expéditeurs autorisés (@sinch.com)', () => {
+    const allowed = ['@sinch.com'];
+    assert.strictEqual(isSenderAllowed('pricing-notification@sinch.com', allowed), true);
+    assert.strictEqual(isSenderAllowed('Sinch Updates <updates@sinch.com>', allowed), true);
+    assert.strictEqual(isSenderAllowed('spammer@unknown.net', allowed), false);
+    assert.strictEqual(isSenderAllowed('fake-sinch@sinch.com.phishing.io', allowed), false);
+    assert.strictEqual(isSenderAllowed('', allowed), false);
+  });
+
+  await it('Devrait extraire et décoder une pièce jointe CSV en base64 d’un message MIME', () => {
+    const csvData = 'Country,Operator,Price\nItaly,TIM,0.0350\nGermany,Telekom,0.0450';
+    const base64Data = Buffer.from(csvData).toString('base64');
+
+    const mimeMessage = [
+      'From: pricing@sinch.com',
+      'To: dmc.tarifs.sinch@gmail.com',
+      'Subject: Sinch Price Change Notification',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="====BOUNDARY123===="',
+      '',
+      '--====BOUNDARY123====',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Please find attached the latest Sinch price changes.',
+      '',
+      '--====BOUNDARY123====',
+      'Content-Type: text/csv; name="PriceChangeNotification_202611.csv"',
+      'Content-Disposition: attachment; filename="PriceChangeNotification_202611.csv"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      base64Data,
+      '',
+      '--====BOUNDARY123====--'
+    ].join('\r\n');
+
+    const attachments = extractCSVAttachments(mimeMessage);
+    assert.strictEqual(attachments.length, 1, 'Devrait trouver exactement 1 pièce jointe');
+    assert.strictEqual(attachments[0].filename, 'PriceChangeNotification_202611.csv');
+    assert.strictEqual(attachments[0].content.trim(), csvData.trim());
+  });
+
+  await it('Devrait ignorer les pièces jointes non CSV (ex: pdf, exe, images)', () => {
+    const mimeMessage = [
+      'From: pricing@sinch.com',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="BOUNDARY"',
+      '',
+      '--BOUNDARY',
+      'Content-Disposition: attachment; filename="facture.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      'FAKE_PDF_DATA',
+      '--BOUNDARY--'
+    ].join('\r\n');
+
+    const attachments = extractCSVAttachments(mimeMessage);
+    assert.strictEqual(attachments.length, 0, 'Les pièces non CSV doivent être ignorées');
+  });
+
+  await it('Devrait calculer un délai positif et inférieur à 24h pour la planification de 02:00', () => {
+    const delay = calculateMsUntilNextSchedule('02:00');
+    assert(delay > 0, 'Le délai doit être strictement positif');
+    assert(delay <= 24 * 3600 * 1000, 'Le délai ne doit pas dépasser 24h');
   });
 
   console.log('\n========================================');
