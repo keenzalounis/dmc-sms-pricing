@@ -10,5 +10,8 @@
   ],
   "requireAttachmentExtension": ".csv",
   "markAsRead": true,
-  "scheduleTime": "02:00"
+  "scheduleTime": "02:00",
+  "alertRecipient": "kenza.lounis@sfr.com",
+  "smtpHost": "smtp.gmail.com",
+  "smtpPort": 465
 }
