@@ -92,72 +92,91 @@ function parseMIMEHeaders(rawHeaders) {
 }
 
 /**
- * Extrait les pièces jointes CSV d'un message MIME.
+ * Extrait le nom de fichier d'un en-tête Content-Disposition ou Content-Type.
  */
-function extractCSVAttachments(rawMessage) {
-  const attachments = [];
-  const headerEnd = rawMessage.search(/\r?\n\r?\n/);
+function extractFilename(headerValue) {
+  if (!headerValue) return null;
+  const patterns = [
+    /(?:filename\*?|name\*?)\s*=\s*(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i,
+    /filename\*0\*?\s*=\s*["']?([^"';\r\n]+)["']?/i
+  ];
+  for (const regex of patterns) {
+    const match = headerValue.match(regex);
+    if (match && match[1]) {
+      let raw = match[1].trim().replace(/^["']|["']$/g, '');
+      try {
+        return decodeURIComponent(raw);
+      } catch (e) {
+        return raw;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extrait récursivement les pièces jointes CSV d'un bloc MIME (gère les multiparts imbriqués Outlook/Exchange).
+ */
+function extractAttachmentsRecursive(mimeBlock, attachments = []) {
+  const headerEnd = mimeBlock.search(/\r?\n\r?\n/);
   if (headerEnd === -1) return attachments;
 
-  const rawHeaders = rawMessage.slice(0, headerEnd);
-  const body = rawMessage.slice(headerEnd).trim();
-  const mainHeaders = parseMIMEHeaders(rawHeaders);
+  const rawHeaders = mimeBlock.slice(0, headerEnd);
+  const body = mimeBlock.slice(headerEnd).trim();
+  const headers = parseMIMEHeaders(rawHeaders);
 
-  const contentType = mainHeaders['content-type'] || '';
-  const boundaryMatch = contentType.match(/boundary=["']?([^"';]+)["']?/i);
+  const contentType = (headers['content-type'] || '').toLowerCase();
+  const disposition = headers['content-disposition'] || '';
+
+  // Chercher un nom de fichier dans Content-Disposition ou Content-Type
+  const filename = extractFilename(headers['content-disposition']) || extractFilename(headers['content-type']);
+
+  // Vérifier si cette partie est un conteneur multipart
+  const boundaryMatch = (headers['content-type'] || '').match(/boundary\s*=\s*["']?([^"';\r\n]+)["']?/i);
 
   if (boundaryMatch) {
-    const boundary = boundaryMatch[1];
-    const parts = body.split(new RegExp(`--${escapeRegExp(boundary)}(?:--)?`));
-
-    for (const part of parts) {
-      const trimmedPart = part.trim();
-      if (!trimmedPart) continue;
-
-      const partHeaderEnd = trimmedPart.search(/\r?\n\r?\n/);
-      if (partHeaderEnd === -1) continue;
-
-      const partHeaders = parseMIMEHeaders(trimmedPart.slice(0, partHeaderEnd));
-      const partBody = trimmedPart.slice(partHeaderEnd).trim();
-
-      const partDisposition = partHeaders['content-disposition'] || '';
-      const partContentType = partHeaders['content-type'] || '';
-      const encoding = (partHeaders['content-transfer-encoding'] || '').toLowerCase();
-
-      // Détection du nom de fichier
-      let filename = null;
-      const fnMatch1 = partDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i);
-      const fnMatch2 = partContentType.match(/name\*?=(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i);
-      if (fnMatch1) filename = decodeURIComponent(fnMatch1[1]);
-      else if (fnMatch2) filename = decodeURIComponent(fnMatch2[1]);
-
-      if (filename && filename.toLowerCase().endsWith('.csv')) {
-        let decodedContent = '';
-        if (encoding.includes('base64')) {
-          decodedContent = Buffer.from(partBody.replace(/\s+/g, ''), 'base64').toString('utf-8');
-        } else if (encoding.includes('quoted-printable')) {
-          decodedContent = decodeQuotedPrintable(partBody);
-        } else {
-          decodedContent = partBody;
-        }
-
-        attachments.push({
-          filename: path.basename(filename),
-          content: decodedContent
-        });
+    const boundary = boundaryMatch[1].trim();
+    const boundaryRegex = new RegExp(`--${escapeRegExp(boundary)}(?:--)?`);
+    const subParts = body.split(boundaryRegex);
+    for (const subPart of subParts) {
+      const trimmed = subPart.trim();
+      if (trimmed && trimmed !== '--') {
+        extractAttachmentsRecursive(trimmed, attachments);
       }
     }
   } else {
-    // Cas d'un message direct sans multipart mais avec contenu CSV
-    if (contentType.toLowerCase().includes('text/csv')) {
+    // Partie feuille : vérifier si c'est un CSV
+    const isCSVByFilename = filename && /\.csv$/i.test(filename.trim());
+    const isCSVByMime = contentType.includes('text/csv') || contentType.includes('text/comma-separated-values');
+
+    if (isCSVByFilename || (isCSVByMime && !filename)) {
+      const finalFilename = filename ? path.basename(filename) : 'sinch_rates.csv';
+      const encoding = (headers['content-transfer-encoding'] || '').toLowerCase().trim();
+
+      let decodedContent = '';
+      if (encoding.includes('base64')) {
+        decodedContent = Buffer.from(body.replace(/\s+/g, ''), 'base64').toString('utf-8');
+      } else if (encoding.includes('quoted-printable')) {
+        decodedContent = decodeQuotedPrintable(body);
+      } else {
+        decodedContent = body;
+      }
+
       attachments.push({
-        filename: 'sinch_rates.csv',
-        content: body
+        filename: finalFilename,
+        content: decodedContent
       });
     }
   }
 
   return attachments;
+}
+
+/**
+ * Point d'entrée pour extraire les pièces jointes CSV d'un message brut.
+ */
+function extractCSVAttachments(rawMessage) {
+  return extractAttachmentsRecursive(rawMessage, []);
 }
 
 function escapeRegExp(string) {
@@ -451,19 +470,23 @@ async function syncMailbox() {
         }
 
         results.sinchEmailsFound++;
+        console.log(`[MAIL] Message #${id} reçu de : "${from}" | Sujet : "${subject}"`);
 
-        // Extraction des pièces jointes CSV
+        // Extraction des pièces jointes CSV (parcours récursif MIME)
         const attachments = extractCSVAttachments(rawContent);
 
         if (attachments.length === 0) {
+          console.log(`[MAIL] ⚠️ Aucun fichier CSV attaché détecté dans le message #${id}.`);
           results.details.push({
             id,
             from,
             subject,
-            status: 'Ignoré (aucun fichier CSV attaché)'
+            status: 'Ignoré (aucun fichier CSV détecté)'
           });
           continue;
         }
+
+        console.log(`[MAIL] ✓ ${attachments.length} fichier(s) CSV trouvé(s) : ${attachments.map(a => a.filename).join(', ')}`);
 
         // Traitement de chaque CSV trouvé
         for (const att of attachments) {
@@ -486,13 +509,15 @@ async function syncMailbox() {
             archiveFile: ingestResult.archiveFile,
             status: 'Ingéré avec succès'
           });
+          console.log(`[MAIL] ✓ Fichier "${att.filename}" ingéré (${ingestResult.recordsUpdated} tarifs actualisés, archive: ${ingestResult.archiveFile})`);
         }
 
-        // 7. Marquer comme lu si configuré
-        if (config.markAsRead) {
+        // 7. Marquer comme lu UNIQUEMENT si un CSV a été ingéré avec succès
+        if (config.markAsRead && attachments.length > 0) {
           await client.sendCommand(`STORE ${id} +FLAGS (\\Seen)`);
         }
       } catch (msgErr) {
+        console.error(`[MAIL] ✗ Erreur lors du traitement du message #${id} :`, msgErr.message);
         results.errors.push(`Erreur message #${id} : ${msgErr.message}`);
       }
     }

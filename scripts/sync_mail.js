@@ -39,17 +39,29 @@ async function main() {
       console.log(`   - Fichiers CSV ingérés     : ${result.stats.csvProcessed}`);
 
       if (result.stats.details && result.stats.details.length > 0) {
-        console.log('\nDétail des traitements :');
+        console.log('\nDétail des messages traités :');
         result.stats.details.forEach((d, idx) => {
-          console.log(`   [${idx + 1}] Fichier : ${d.filename || 'N/A'}`);
-          console.log(`       De      : ${d.from}`);
+          console.log(`   [${idx + 1}] De      : ${d.from}`);
           console.log(`       Sujet   : ${d.subject}`);
+          if (d.filename) {
+            console.log(`       Fichier : ${d.filename}`);
+          }
           if (d.recordsUpdated !== undefined) {
             console.log(`       Tarifs mis à jour : ${d.recordsUpdated} (hausses: ${d.increases}, baisses: ${d.decreases})`);
             console.log(`       Archive créée     : ${d.archiveFile}`);
           }
           console.log(`       Statut  : ${d.status}`);
         });
+      }
+
+      if (result.stats.errors && result.stats.errors.length > 0) {
+        console.log('\n⚠️ Erreurs rencontrées lors du traitement :');
+        result.stats.errors.forEach(err => console.log(`   - ${err}`));
+      }
+
+      if (result.stats.csvProcessed === 0 && result.stats.sinchEmailsFound > 0) {
+        console.log('\n💡 Conseil : L\'e-mail a bien été détecté mais aucune pièce jointe au format .csv n\'a été trouvée.');
+        console.log('   Assurez-vous que le fichier est bien attaché (et non collé dans le texte) avec l\'extension .csv.');
       }
     }
   } else {
