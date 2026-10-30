@@ -113,7 +113,74 @@ function parsePrice(value) {
   const standard = decimalComma
     ? normalized.replace(/\./g, '').replace(',', '.')
     : normalized.replace(/,/g, '');
-  return Number.parseFloat(standard);
+  return Number(standard);
+}
+
+function normalizeHeader(value) {
+  return String(value || '')
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function readCSVField(row, ...names) {
+  const expected = new Set(names.map(normalizeHeader));
+  const entry = Object.entries(row).find(([header]) => expected.has(normalizeHeader(header)));
+  return entry ? entry[1] : '';
+}
+
+function validateCSVRows(rows) {
+  const errors = [];
+  if (!rows.length) {
+    return ['Aucune ligne de tarif valide : le fichier ne contient aucune ligne de données.'];
+  }
+
+  const headers = Object.keys(rows[0]).map(normalizeHeader);
+  const hasCountry = headers.includes('country');
+  const hasOperator = headers.includes('operator');
+  const hasUpdatePrice = headers.includes('new price');
+  const hasBasePrice = headers.includes('price');
+
+  if (headers.includes('old price') && !hasUpdatePrice) {
+    return ['Aucune ligne de tarif valide : une mise à jour avec Old Price doit aussi contenir New Price.'];
+  }
+
+  if (!hasCountry || !hasOperator || (!hasUpdatePrice && !hasBasePrice)) {
+    const missing = [];
+    if (!hasCountry) missing.push('Country');
+    if (!hasOperator) missing.push('Operator');
+    if (!hasUpdatePrice && !hasBasePrice) missing.push('Price ou New Price');
+    return [
+      `Aucune ligne de tarif valide : colonnes Sinch requises absentes (${missing.join(', ')}).`,
+      'Formats acceptés : Country, Operator, Price (fichier de base) ou Country, Operator, New Price (mise à jour).'
+    ];
+  }
+
+  let invalidRowCount = 0;
+  rows.forEach((row, index) => {
+    const country = readCSVField(row, 'Country');
+    const operator = readCSVField(row, 'Operator');
+    const priceValue = hasUpdatePrice
+      ? readCSVField(row, 'New Price')
+      : readCSVField(row, 'Price');
+    const price = parsePrice(priceValue);
+    const rowErrors = [];
+
+    if (!country.trim()) rowErrors.push('pays absent');
+    if (!operator.trim()) rowErrors.push('opérateur absent');
+    if (!Number.isFinite(price) || price <= 0) rowErrors.push('tarif invalide');
+    if (rowErrors.length) {
+      invalidRowCount++;
+      if (errors.length < 5) errors.push(`Ligne ${index + 2} : ${rowErrors.join(', ')}.`);
+    }
+  });
+
+  if (invalidRowCount > errors.length) {
+    errors.push(`Autres lignes invalides : ${invalidRowCount - errors.length}.`);
+  }
+  return errors;
 }
 
 /**
@@ -228,7 +295,10 @@ function ingestRows(rows, sourceName = 'inconnu', sourceContent = null) {
 
   for (const row of rows) {
     // Détecte le type de format (Base ou PriceChangeNotification)
-    const isPriceChange = ('New Price' in row || 'Old Price' in row);
+    const isPriceChange = Object.keys(row).some(header => {
+      const normalized = normalizeHeader(header);
+      return normalized === 'new price' || normalized === 'old price';
+    });
 
     const country = row['Country'] || row['country'] || 'Inconnu';
     const operator = row['Operator'] || row['operator'] || 'Tous opérateurs';
@@ -256,14 +326,14 @@ function ingestRows(rows, sourceName = 'inconnu', sourceContent = null) {
     let newPrice, oldPrice, validFrom;
 
     if (isPriceChange) {
-      newPrice = parsePrice(row['New Price'] || row['new_price']);
-      oldPrice = parsePrice(row['Old Price'] || row['old_price'] || newPrice);
-      validFrom = normalizeDate(row['Valid From'] || row['valid_from']);
+      newPrice = parsePrice(readCSVField(row, 'New Price'));
+      oldPrice = parsePrice(readCSVField(row, 'Old Price') || newPrice);
+      validFrom = normalizeDate(readCSVField(row, 'Valid From'));
       if (!Number.isFinite(oldPrice) || oldPrice < 0) oldPrice = newPrice;
     } else {
-      newPrice = parsePrice(row['Price'] || row['price']);
+      newPrice = parsePrice(readCSVField(row, 'Price'));
       oldPrice = newPrice;
-      validFrom = normalizeDate(row['EffectiveDate'] || row['date']);
+      validFrom = normalizeDate(readCSVField(row, 'EffectiveDate', 'Date'));
     }
 
     if (!Number.isFinite(newPrice) || newPrice <= 0) continue;
@@ -366,8 +436,7 @@ function ingestFile(filePath) {
   }
   const content = fs.readFileSync(filePath, 'utf-8');
   const filename = path.basename(filePath);
-  const rows = parseCSV(content);
-  return ingestRows(rows, filename, content);
+  return ingestCSVContent(content, filename);
 }
 
 /**
@@ -375,9 +444,11 @@ function ingestFile(filePath) {
  */
 function ingestCSVContent(csvString, sourceName = 'upload_manuel.csv') {
   const rows = parseCSV(csvString);
-  if (rows.length === 0) {
-    const error = new Error('Le fichier CSV est vide ou ne contient aucune ligne de données.');
+  const validationErrors = validateCSVRows(rows);
+  if (validationErrors.length) {
+    const error = new Error(validationErrors[0]);
     error.statusCode = 400;
+    error.details = validationErrors.slice(1, 6);
     throw error;
   }
   return ingestRows(rows, sourceName, csvString);
@@ -399,6 +470,7 @@ if (require.main === module) {
 module.exports = {
   parseCSV,
   parsePrice,
+  validateCSVRows,
   normalizeDate,
   buildRecordKey,
   loadDatabase,

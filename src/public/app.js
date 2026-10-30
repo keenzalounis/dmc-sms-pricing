@@ -192,13 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       pyChartsGallery.innerHTML = charts.map(c => `
-        <div class="py-chart-card" style="background:#FFFFFF; border:1px solid #E2E6EC; border-radius:8px; padding:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h4 style="margin:0; font-size:14px; color:#1C2024;">${escapeHTML(c.title)}</h4>
-            <a href="${apiUrl(c.url)}" download="${c.name}" class="btn btn-ghost btn-sm">💾 Télécharger HD</a>
+        <article class="py-chart-card">
+          <div class="py-chart-card-header">
+            <h4>${escapeHTML(c.title)}</h4>
+            <a href="${apiUrl(c.url)}" download="${escapeHTML(c.name)}" class="btn btn-ghost btn-sm">Télécharger</a>
           </div>
-          <img src="${apiUrl(c.url)}?t=${Date.now()}" alt="${escapeHTML(c.title)}" style="width:100%; height:auto; border-radius:6px; border:1px solid #E2E6EC; display:block;">
-        </div>
+          <img src="${apiUrl(c.url)}?t=${Date.now()}" alt="${escapeHTML(c.title)}" loading="lazy">
+        </article>
       `).join('');
     } catch (err) {
       pyChartsGallery.innerHTML = `<p class="text-center text-danger">Erreur : ${err.message}</p>`;
@@ -321,7 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadArchives();
         setTimeout(() => { closeModal(modalUpload); }, 1800);
       } else {
-        showUploadStatus(`Erreur : ${data.message}`, 'danger');
+        const details = Array.isArray(data.details) ? data.details.join(' ') : '';
+        showUploadStatus(`Erreur : ${data.message}${details ? ` ${details}` : ''}`, 'danger');
         btnSendUpload.disabled = false;
         btnSendUpload.textContent = "Lancer l'ingestion";
       }

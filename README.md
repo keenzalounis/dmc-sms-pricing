@@ -8,10 +8,10 @@ Application web interne de consultation des tarifs SMS internationaux Sinch, de 
 - Prise en charge des colonnes de mise à jour (`Old Price`, `New Price`, `Valid From`) et du format de base (`Country`, `Operator`, `Service type`, `Originator`, `MCC`, `MCC/MNC`, `Price`, `Currency`).
 - Conservation de l'historique des prix par opérateur, ainsi qu'une archive téléchargeable du référentiel antérieur et du CSV importé à chaque import valide.
 - Recherche et consultation des tarifs depuis le tableau de bord.
-- Graphiques analytiques générés en Python : comparaison des tarifs moyens par pays (France mise en évidence) et évolution annuelle issue des historiques.
+- Graphiques analytiques générés en Python : comparaison des tarifs moyens par pays (France mise en évidence) et tendance mensuelle ou annuelle selon l'historique disponible.
 - Export CSV pour la facturation.
 
-**L'application n'interroge pas l'API Sinch.** L'API envisagée dans la première version concernait des tarifs, pas les données de consommation ou de facturation des SMS. Les mises à jour sont importées à partir de CSV. La lecture automatique d'une boîte mail dédiée n'est pas encore implémentée.
+**L'application n'interroge pas l'API Sinch.** L'API envisagée dans la première version concernait des tarifs, pas les données de consommation ou de facturation des SMS. Les tarifs peuvent être importés depuis l'interface ou récupérés par le connecteur de boîte mail lorsqu'il est configuré. Les messages et pièces jointes sont contrôlés avant l'ingestion ; les anomalies peuvent déclencher une alerte au destinataire configuré.
 
 La base de démonstration déjà présente dans le dépôt contient des données de tests issues de l'ancien mode mock. Avant tout usage métier, importer et valider le fichier de base tarifaire approuvé par Sinch ; ne pas considérer ces valeurs de démonstration comme des prix de production.
 
@@ -41,7 +41,7 @@ Sur Linux / VM Ubuntu, les commandes npm s'exécutent normalement avec `npm`.
 
 ## Import et archives
 
-Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur valide les lignes de tarif, archive l'ancien référentiel avant l'application des données et garde le CSV importé dans l'archive JSON. Les archives sont consultables et téléchargeables depuis **Historique des versions**.
+Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur vérifie les colonnes obligatoires et chaque ligne tarifaire avant toute modification. Si le format ou une ligne est invalide, le fichier entier est refusé pour éviter un import partiel. Un import valide archive l'ancien référentiel et conserve le CSV importé dans l'archive JSON. Les archives sont consultables et téléchargeables depuis **Historique des versions**.
 
 Les archives et la base active sont enregistrées sous `data/`. Il faut donc inclure ce dossier dans les sauvegardes de la VM et éviter de le remplacer lors d'un déploiement.
 
@@ -57,9 +57,11 @@ Avant le déploiement, vérifier notamment :
 4. L'accès navigateur est publié via le réseau interne / VPN, le HTTPS et l'authentification approuvés.
 5. Une procédure de mise à jour Git conserve la base et les archives, puis exécute `npm test`.
 
-## Automatisation future par email
+## Relève de la boîte mail
 
-Pour déclencher l'import dès réception d'une notification Sinch, il faudra préciser le fournisseur de la boîte générique, le mode d'accès autorisé (par exemple connecteur de messagerie ou flux d'automatisation approuvé), les règles de validation des expéditeurs/pièces jointes, et la politique de traitement des doublons et erreurs. Cette intégration n'est pas active dans la version actuelle ; aucun identifiant de messagerie n'est requis pour l'import manuel.
+Le connecteur de boîte mail est configuré dans `data/mail_config.json` à partir du modèle `data/mail_config.example.json`. Il prend en charge une relève planifiée et un déclenchement manuel depuis la fenêtre d'import. Vérifier la configuration et le statut dans l'application avant de compter sur l'automatisation. Les identifiants de messagerie ne doivent pas être intégrés au code source ni partagés.
+
+Les courriels sont filtrés selon les expéditeurs et le contenu attendus. Les pièces jointes non CSV, les messages non conformes et les fichiers dont le schéma ou les tarifs sont invalides sont rejetés et peuvent déclencher une alerte au destinataire configuré. Aucun webhook entrant n'est utilisé par cette relève planifiée.
 
 ## Fichiers utiles
 

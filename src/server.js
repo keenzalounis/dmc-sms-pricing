@@ -51,15 +51,17 @@ function sendJSON(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-function sendError(res, statusCode, message) {
-  sendJSON(res, statusCode, { error: true, message });
+function sendError(res, statusCode, message, details) {
+  const response = { error: true, message };
+  if (details && details.length) response.details = details;
+  sendJSON(res, statusCode, response);
 }
 
 function formatChartTitle(filename) {
   const base = filename.replace(/\.(png|svg)$/, '');
   const titles = {
     'average_price_by_country': 'Comparaison des tarifs moyens par pays',
-    'annual_price_evolution': 'Évolution annuelle des tarifs (France et autres pays)'
+    'annual_price_evolution': 'Évolution temporelle des tarifs historisés'
   };
   return titles[base] || base.replace(/_/g, ' ');
 }
@@ -210,7 +212,9 @@ const server = http.createServer((req, res) => {
       sendJSON(res, 200, { charts: [] });
       return;
     }
-    const files = fs.readdirSync(CHARTS_DIR).filter(f => f.endsWith('.png') || f.endsWith('.svg'));
+    const files = fs.readdirSync(CHARTS_DIR)
+      .filter(f => f.endsWith('.png') || f.endsWith('.svg'))
+      .sort((a, b) => a.localeCompare(b));
     const charts = files.map(f => ({
       name: f,
       url: `/charts/${f}`,
@@ -264,7 +268,12 @@ const server = http.createServer((req, res) => {
           details: result
         });
       } catch (err) {
-        sendError(res, err.statusCode || 500, `Erreur lors de l'ingestion : ${err.message}`);
+        sendError(
+          res,
+          err.statusCode || 500,
+          `Erreur lors de l'ingestion : ${err.message}`,
+          err.details
+        );
       }
     });
     return;

@@ -4,13 +4,13 @@
 |---|---|
 | Application | DMC SMS Pricing |
 | Utilisateurs | Pôle Facturation, ADV, Contrôle de gestion |
-| État | Import CSV manuel ; automatisation email à définir |
+| État | Import CSV manuel et relève planifiée de la boîte mail si configurée |
 
 ## 1. Objectif et limites
 
 L'application centralise les tarifs d'achat SMS internationaux transmis par Sinch, conserve leur historique, permet de les rechercher et prépare un export CSV destiné au pôle Facturation.
 
-La version actuelle ne récupère pas les données de consommation ou de facturation DMC par API Sinch. L'API envisagée précédemment concernait les tarifs et n'est pas utilisée. Les notifications Sinch sont actuellement importées à partir de leur fichier CSV. La lecture automatique de la boîte mail dédiée reste à développer après validation des modalités d'accès.
+La version actuelle ne récupère pas les données de consommation ou de facturation DMC par API Sinch. L'API envisagée précédemment concernait les tarifs et n'est pas utilisée. Les notifications Sinch sont importées depuis leur CSV, manuellement ou via la relève planifiée de la boîte mail lorsque celle-ci est configurée.
 
 La base de démonstration fournie dans le dépôt peut contenir des valeurs provenant de l'ancien mode mock. Avant une utilisation métier, importer et faire valider le fichier tarifaire de référence ; ne pas utiliser les valeurs de démonstration pour facturer.
 
@@ -32,7 +32,7 @@ L'import prend en charge les colonnes d'une notification telles que `Product`, `
 
 Avant chaque import valide, l'application conserve un instantané de la base précédente et le contenu du CSV importé. Les versions sont accessibles et téléchargeables depuis **Historique des versions** et stockées sous `data/archives/`. Elles doivent être sauvegardées avec `data/database.json` lors de l'exploitation de la VM.
 
-Un CSV mal formé ou ne contenant aucune ligne de tarif valide est refusé. Ne remplacez pas manuellement `data/database.json` pour corriger un import : contactez l'équipe technique et restaurez une archive vérifiée si nécessaire.
+Les colonnes obligatoires sont `Country`, `Operator` et `Price` pour un fichier de base, ou `Country`, `Operator` et `New Price` pour une mise à jour. Toutes les lignes de tarif sont contrôlées avant l'import ; si une ligne est invalide ou si le schéma ne correspond pas, le fichier entier est refusé et la base n'est pas modifiée. Le message d'erreur indique les colonnes attendues ou les premières lignes à corriger. Ne remplacez pas manuellement `data/database.json` pour corriger un import : contactez l'équipe technique et restaurez une archive vérifiée si nécessaire.
 
 ## 4. Rechercher et examiner un tarif
 
@@ -42,12 +42,12 @@ Les hausses et baisses sont calculées à partir des prix présents dans les fic
 
 ## 5. Générer les graphiques
 
-Choisir **Analyses & graphiques**, puis **Générer les graphiques**. Les deux vues Python disponibles sont :
+Choisir **Analyses & graphiques**, puis **Générer les graphiques**. Les deux vues Python disponibles sont présentées dans une galerie responsive :
 
 - la comparaison du prix moyen actuel par pays, avec la France mise en évidence ;
-- l'évolution annuelle des prix moyens par pays à partir des dates d'effet historisées.
+- l'évolution mensuelle des prix moyens par pays à partir des dates d'effet historisées, avec la France incluse lorsqu'elle dispose de plusieurs mois de données.
 
-La génération nécessite Python 3 et les dépendances listées dans `requirements.txt` sur la machine qui exécute le serveur. Si l'historique ne contient pas encore suffisamment de dates, le graphique annuel sera limité aux données disponibles.
+La génération nécessite Python 3 et les dépendances listées dans `requirements.txt` sur la machine qui exécute le serveur. La tendance utilise uniquement les mois présents dans l'historique ; en l'absence de plusieurs mois pour comparer un pays, le graphique indique que l'historique est insuffisant au lieu d'inventer une évolution.
 
 ## 6. Exporter pour la facturation
 
@@ -69,14 +69,10 @@ npm.cmd start
 
 Le serveur écoute sur le port configuré par `PORT` (3000 par défaut). En VM, l'exploitation doit assurer le démarrage automatique, les journaux, les sauvegardes de `data/`, le reverse proxy et l'authentification approuvés par SFR. Tester une mise à jour du code et une restauration d'archive avant toute mise en service métier.
 
-## 8. Automatisation future de la boîte mail
+## 8. Relève de la boîte mail et alertes
 
-L'automatisation ne doit être activée qu'après décision sur :
+La relève planifiée et le déclenchement manuel depuis la fenêtre d'import s'appuient sur les paramètres de `data/mail_config.json` (à créer à partir du modèle `data/mail_config.example.json`). Vérifier dans l'interface que la boîte est configurée et que la relève répond avant de compter sur l'automatisation.
 
-- le fournisseur et le propriétaire de la boîte générique ;
-- le connecteur autorisé (API de messagerie, passerelle ou workflow d'entreprise) et les permissions minimales ;
-- les critères de confiance (expéditeur, sujet, extension, taille et schéma du fichier) ;
-- la gestion des doublons, des erreurs, des notifications et de la reprise après incident ;
-- la validation métier avant de rendre un changement de prix applicable.
+Les messages Sinch et les pièces jointes sont contrôlés. Les messages suspects, les pièces jointes non CSV et les fichiers dont les colonnes ou les tarifs sont invalides sont rejetés ; une alerte est envoyée au destinataire configuré si le transport de courriel est opérationnel. Vérifier la configuration et les journaux du serveur en cas d'échec d'envoi.
 
-Aucun webhook public ni accès à la messagerie n'est configuré dans la version actuelle.
+Cette version utilise une relève planifiée ; elle ne nécessite pas de webhook entrant public. Les identifiants de boîte et d'envoi doivent rester dans la configuration runtime et ne doivent pas être publiés.
