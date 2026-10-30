@@ -78,10 +78,13 @@ def chart_average_price_by_country(current, output_path):
 
 def chart_annual_price_evolution(history, output_path):
     if history.empty:
-        raise ValueError("Aucun historique de prix disponible pour la comparaison annuelle.")
+        raise ValueError("Aucun historique de prix disponible pour la comparaison temporelle.")
 
     history = history.copy()
     history["year"] = history["date"].dt.year
+    history["period"] = history["date"].dt.strftime("%Y-%m")
+
+    # Sélectionner les pays les plus fréquents + France
     counts = history.groupby("country").size().sort_values(ascending=False)
     selected_countries = counts.head(5).index.tolist()
     france = next((country for country in history["country"].unique()
@@ -89,13 +92,9 @@ def chart_annual_price_evolution(history, output_path):
     if france and france not in selected_countries:
         selected_countries.append(france)
 
-    yearly = (
-        history[history["country"].isin(selected_countries)]
-        .groupby(["year", "country"], as_index=False)["price"]
-        .mean()
-    )
-    if yearly.empty:
-        raise ValueError("Aucun tarif historisé ne peut être agrégé par année.")
+    # Déterminer la granularité temporelle adaptée
+    unique_years = sorted(history["year"].dropna().unique().astype(int))
+    unique_periods = sorted(history["period"].dropna().unique())
 
     palette = sns.color_palette("deep", n_colors=len(selected_countries))
     colors = {
@@ -103,27 +102,88 @@ def chart_annual_price_evolution(history, output_path):
         for index, country in enumerate(selected_countries)
     }
 
-    fig, axis = plt.subplots(figsize=(11, 6), dpi=160)
-    for country in selected_countries:
-        series = yearly[yearly["country"] == country].sort_values("year")
-        if series.empty:
-            continue
-        axis.plot(series["year"], series["price"], marker="o", linewidth=2.5,
-                  label=country, color=colors[country])
-        for year, price in zip(series["year"], series["price"]):
-            axis.annotate(f"{price:.5f} €", (year, price), textcoords="offset points",
-                          xytext=(0, 9), ha="center", fontsize=8)
+    # CAS 1 : Plusieurs années distinctes -> Évolution annuelle
+    if len(unique_years) >= 2:
+        yearly = (
+            history[history["country"].isin(selected_countries)]
+            .groupby(["year", "country"], as_index=False)["price"]
+            .mean()
+        )
+        fig, axis = plt.subplots(figsize=(11, 6), dpi=160)
+        for country in selected_countries:
+            series = yearly[yearly["country"] == country].sort_values("year")
+            if series.empty:
+                continue
+            axis.plot(series["year"], series["price"], marker="o", linewidth=2.5,
+                      label=country, color=colors[country])
+            for year, price in zip(series["year"], series["price"]):
+                axis.annotate(f"{price:.5f} €", (year, price), textcoords="offset points",
+                              xytext=(0, 9), ha="center", fontsize=8)
 
-    axis.set_title("Évolution annuelle du prix moyen par pays",
-                   fontsize=13, fontweight="bold", color=SFR_DARK, pad=14)
-    axis.set_xlabel("Année de prise d'effet")
-    axis.set_ylabel("Prix moyen d'achat par SMS (€)")
-    axis.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
-    axis.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.3f €"))
-    axis.legend(title="Pays")
-    fig.tight_layout()
-    fig.savefig(output_path, bbox_inches="tight")
-    plt.close(fig)
+        axis.set_title("Évolution annuelle des tarifs SMS par pays",
+                       fontsize=13, fontweight="bold", color=SFR_DARK, pad=14)
+        axis.set_xlabel("Année")
+        axis.set_ylabel("Prix moyen (€ HT / SMS)")
+        axis.set_xlim(min(unique_years) - 0.4, max(unique_years) + 0.4)
+        axis.xaxis.set_major_locator(ticker.FixedLocator(unique_years))
+        axis.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.3f €"))
+        axis.legend(title="Pays", loc="upper right")
+        fig.tight_layout()
+        fig.savefig(output_path, bbox_inches="tight")
+        plt.close(fig)
+
+    # CAS 2 : Une seule année mais plusieurs mois -> Évolution mensuelle détaillée
+    elif len(unique_periods) >= 2:
+        monthly = (
+            history[history["country"].isin(selected_countries)]
+            .groupby(["period", "country"], as_index=False)["price"]
+            .mean()
+        )
+        fig, axis = plt.subplots(figsize=(11, 6), dpi=160)
+        for country in selected_countries:
+            series = monthly[monthly["country"] == country].sort_values("period")
+            if series.empty:
+                continue
+            axis.plot(series["period"], series["price"], marker="o", linewidth=2.5,
+                      label=country, color=colors[country])
+            for period, price in zip(series["period"], series["price"]):
+                axis.annotate(f"{price:.5f} €", (period, price), textcoords="offset points",
+                              xytext=(0, 9), ha="center", fontsize=8)
+
+        axis.set_title(f"Évolution mensuelle des tarifs SMS ({unique_years[0] if unique_years else ''})",
+                       fontsize=13, fontweight="bold", color=SFR_DARK, pad=14)
+        axis.set_xlabel("Mois de prise d'effet")
+        axis.set_ylabel("Prix moyen (€ HT / SMS)")
+        axis.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.3f €"))
+        axis.legend(title="Pays", loc="upper right")
+        fig.tight_layout()
+        fig.savefig(output_path, bbox_inches="tight")
+        plt.close(fig)
+
+    # CAS 3 : Une seule date dans l'historique -> Diagramme comparatif propre
+    else:
+        averages = (
+            history[history["country"].isin(selected_countries)]
+            .groupby("country", as_index=False)["price"]
+            .mean()
+            .sort_values("price", ascending=True)
+        )
+        fig, axis = plt.subplots(figsize=(10, 5), dpi=160)
+        bar_colors = [colors[c] for c in averages["country"]]
+        bars = axis.barh(averages["country"], averages["price"], color=bar_colors, height=0.55)
+
+        for bar, price in zip(bars, averages["price"]):
+            axis.text(price + 0.001, bar.get_y() + bar.get_height() / 2,
+                      f"  {price:.5f} €", va="center", fontsize=9, fontweight="bold", color=SFR_DARK)
+
+        axis.set_title(f"Tarifs moyens par pays (Période : {unique_periods[0] if unique_periods else 'actuelle'})",
+                       fontsize=13, fontweight="bold", color=SFR_DARK, pad=14)
+        axis.set_xlabel("Prix moyen (€ HT / SMS)")
+        axis.set_ylabel("Pays")
+        axis.xaxis.set_major_formatter(ticker.FormatStrFormatter("%.3f €"))
+        fig.tight_layout()
+        fig.savefig(output_path, bbox_inches="tight")
+        plt.close(fig)
 
 
 def main():

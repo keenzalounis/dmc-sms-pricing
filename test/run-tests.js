@@ -24,6 +24,9 @@ const { getBillingData, toCSV } = require('../src/export');
 const {
   isSenderAllowed,
   extractCSVAttachments,
+  extractAttachmentsRecursive,
+  validateSinchEmailFormat,
+  validateCSVColumns,
   calculateMsUntilNextSchedule,
   parseMIMEHeaders,
   decodeQuotedPrintable
@@ -291,6 +294,52 @@ async function runTests() {
 
     const attachments = extractCSVAttachments(mimeMessage);
     assert.strictEqual(attachments.length, 0, 'Les pièces non CSV doivent être ignorées');
+  });
+
+  await it('Devrait détecter et rejeter un email Sinch dont le format/sujet n\'est pas une notification tarifaire', () => {
+    const invalidFormat = validateSinchEmailFormat('Invitation réunion projet', 'Bonjour, rendez-vous demain pour faire un point.');
+    assert.strictEqual(invalidFormat.valid, false, 'Un e-mail sans mot-clé tarifaire doit être invalidé');
+    assert(invalidFormat.reason.length > 0, 'Une raison d\'alerte doit être fournie');
+
+    const validFormat = validateSinchEmailFormat('Sinch Price Change Notification', 'Dear SFR Business Solutions, attached price changes.');
+    assert.strictEqual(validFormat.valid, true, 'Un e-mail de notification officiel Sinch doit être accepté');
+  });
+
+  await it('Devrait détecter les pièces jointes non CSV (.xlsx, .pdf) pour alerte', () => {
+    const rawMimeWithExcel = [
+      'From: rates@sinch.com',
+      'Content-Type: multipart/mixed; boundary="EXCEL_BOUNDARY"',
+      '',
+      '--EXCEL_BOUNDARY',
+      'Content-Type: text/plain',
+      '',
+      'Dear SFR Business Solutions, attached prices.',
+      '',
+      '--EXCEL_BOUNDARY',
+      'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition: attachment; filename="PriceChangeNotification.xlsx"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      'RkFLRV9FWENFTF9EQVRB',
+      '',
+      '--EXCEL_BOUNDARY--'
+    ].join('\r\n');
+
+    const all = extractAttachmentsRecursive(rawMimeWithExcel, []);
+    assert.strictEqual(all.length, 1, 'Devrait détecter la pièce jointe Excel');
+    assert.strictEqual(all[0].filename, 'PriceChangeNotification.xlsx');
+    assert.strictEqual(all[0].isCSV, false, 'Le fichier Excel doit être identifié comme non-CSV');
+  });
+
+  await it('Devrait rejeter un CSV dont les colonnes obligatoires (Country, Operator, Price) sont absentes', () => {
+    const badCSV = 'Identifiant;Nom;Statut;Commentaire\n1;Test;OK;Pas de prix';
+    const checkBad = validateCSVColumns(badCSV, 'test_mauvais.csv');
+    assert.strictEqual(checkBad.valid, false, 'Un CSV sans colonnes tarifaires doit être rejeté');
+    assert(checkBad.reason.includes('Colonnes obligatoires manquantes'), 'Le motif doit lister les colonnes manquantes');
+
+    const goodCSV = 'Country,Operator,Old Price,New Price,Valid From\nFrance,SFR,0.02,0.03,2026-11-01';
+    const checkGood = validateCSVColumns(goodCSV, 'PriceChangeNotification.csv');
+    assert.strictEqual(checkGood.valid, true, 'Le CSV officiel avec Country, Operator, Price doit être accepté');
   });
 
   await it('Devrait calculer un délai positif et inférieur à 24h pour la planification de 02:00', () => {
