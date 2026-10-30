@@ -3,6 +3,12 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Support transparent du Reverse Proxy (racine ou sous-chemin comme /dmc/)
+  const basePath = window.location.pathname.replace(/\/index\.html$/i, '').replace(/\/+$/, '') + '/';
+  function apiUrl(endpoint) {
+    return basePath + endpoint.replace(/^\//, '');
+  }
+
   // Éléments DOM
   const kpiTotal = document.getElementById('kpi-total');
   const kpiAvg = document.getElementById('kpi-avg');
@@ -80,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mailSyncStatus) mailSyncStatus.style.display = 'none';
 
       try {
-        const res = await fetch('/api/mail/sync', { method: 'POST' });
+        const res = await fetch(apiUrl('/api/mail/sync'), { method: 'POST' });
         const data = await res.json();
         if (res.ok && data.success) {
           if (mailSyncStatus) {
@@ -119,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!mailSyncInfo) return;
     if (mailSyncStatus) mailSyncStatus.style.display = 'none';
     try {
-      const res = await fetch('/api/mail/status');
+      const res = await fetch(apiUrl('/api/mail/status'));
       const data = await res.json();
       if (!data.configured) {
         mailSyncInfo.innerHTML = '⚠️ Boîte mail non configurée dans <code>data/mail_config.json</code>.';
@@ -147,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     pyGenerateStatus.style.display = 'none';
 
     try {
-      const res = await fetch('/api/charts/generate', { method: 'POST' });
+      const res = await fetch(apiUrl('/api/charts/generate'), { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.success) {
         pyGenerateStatus.className = 'alert alert-success';
@@ -172,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadPythonCharts() {
     pyChartsGallery.innerHTML = '<p class="text-center text-muted">Recherche des graphiques générés...</p>';
     try {
-      const res = await fetch('/api/charts/list');
+      const res = await fetch(apiUrl('/api/charts/list'));
       if (!res.ok) throw new Error('Impossible de charger la liste des graphiques');
       const { charts } = await res.json();
 
@@ -189,9 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="py-chart-card" style="background:#FFFFFF; border:1px solid #E2E6EC; border-radius:8px; padding:16px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <h4 style="margin:0; font-size:14px; color:#1C2024;">${escapeHTML(c.title)}</h4>
-            <a href="${c.url}" download="${c.name}" class="btn btn-ghost btn-sm">💾 Télécharger HD</a>
+            <a href="${apiUrl(c.url)}" download="${c.name}" class="btn btn-ghost btn-sm">💾 Télécharger HD</a>
           </div>
-          <img src="${c.url}?t=${Date.now()}" alt="${escapeHTML(c.title)}" style="width:100%; height:auto; border-radius:6px; border:1px solid #E2E6EC; display:block;">
+          <img src="${apiUrl(c.url)}?t=${Date.now()}" alt="${escapeHTML(c.title)}" style="width:100%; height:auto; border-radius:6px; border:1px solid #E2E6EC; display:block;">
         </div>
       `).join('');
     } catch (err) {
@@ -203,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const archivesTbody = document.getElementById('archives-tbody');
     archivesTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chargement...</td></tr>';
     try {
-      const res = await fetch('/api/archives');
+      const res = await fetch(apiUrl('/api/archives'));
       if (!res.ok) throw new Error('Impossible de charger les archives');
       const { archives } = await res.json();
       if (!archives.length) {
@@ -215,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${new Date(archive.archivedAt).toLocaleString('fr-FR')}</td>
           <td>${escapeHTML(archive.source)}</td>
           <td>${archive.totalDestinations}</td>
-          <td><a class="btn btn-ghost btn-sm" href="/api/archives/${encodeURIComponent(archive.filename)}" download> Télécharger</a></td>
+          <td><a class="btn btn-ghost btn-sm" href="${apiUrl('/api/archives/' + encodeURIComponent(archive.filename))}" download> Télécharger</a></td>
         </tr>
       `).join('');
     } catch (err) {
@@ -243,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let url = `/api/export?margin=${margin}`;
     if (country) url += `&country=${country}`;
 
-    window.location.href = url;
+    window.location.href = apiUrl(url);
     closeModal(modalExport);
   });
 
@@ -298,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSendUpload.textContent = 'Ingestion en cours...';
 
     try {
-      const res = await fetch('/api/upload', {
+      const res = await fetch(apiUrl('/api/upload'), {
         method: 'POST',
         headers: {
           'Content-Type': 'text/csv',
@@ -348,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Chargement des KPIs ---
   async function loadKPIs() {
     try {
-      const res = await fetch('/api/stats');
+      const res = await fetch(apiUrl('/api/stats'));
       const data = await res.json();
       kpiTotal.textContent = data.totalDestinations || 0;
       kpiAvg.textContent = `${(data.averagePriceEUR || 0).toFixed(4)} €`;
@@ -365,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let url = '/api/prices';
       if (query.trim()) url += `?q=${encodeURIComponent(query.trim())}`;
 
-      const res = await fetch(url);
+      const res = await fetch(apiUrl(url));
       const { count, data } = await res.json();
 
       resultsCount.textContent = `${count} destination${count > 1 ? 's' : ''}`;
@@ -409,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Expose globalement pour les boutons onclick
   window.showHistory = async function(recordId) {
     try {
-      const res = await fetch(`/api/history?id=${encodeURIComponent(recordId)}`);
+      const res = await fetch(apiUrl(`/api/history?id=${encodeURIComponent(recordId)}`));
       const data = await res.json();
 
       chartTitle.textContent = `${data.country} - ${data.operator}`;
