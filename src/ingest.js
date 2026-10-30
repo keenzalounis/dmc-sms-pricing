@@ -273,6 +273,16 @@ function getDatabaseArchive(filename) {
   return fs.readFileSync(archivePath, 'utf-8');
 }
 
+function deleteDatabaseArchive(filename) {
+  if (path.basename(filename) !== filename || !filename.endsWith('.json')) {
+    throw new Error('Nom d’archive invalide');
+  }
+  const archivePath = path.join(ARCHIVES_DIR, filename);
+  if (!fs.existsSync(archivePath)) return false;
+  fs.unlinkSync(archivePath);
+  return true;
+}
+
 /**
  * Génère la clé unique télécom pour un opérateur
  */
@@ -477,6 +487,7 @@ module.exports = {
   saveDatabase,
   listDatabaseArchives,
   getDatabaseArchive,
+  deleteDatabaseArchive,
   ingestRows,
   ingestFile,
   ingestCSVContent

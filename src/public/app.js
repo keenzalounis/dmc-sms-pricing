@@ -221,7 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${new Date(archive.archivedAt).toLocaleString('fr-FR')}</td>
           <td>${escapeHTML(archive.source)}</td>
           <td>${archive.totalDestinations}</td>
-          <td><a class="btn btn-ghost btn-sm" href="${apiUrl('/api/archives/' + encodeURIComponent(archive.filename))}" download> Télécharger</a></td>
+          <td style="white-space: nowrap;">
+            <a class="btn btn-ghost btn-sm" href="${apiUrl('/api/archives/' + encodeURIComponent(archive.filename))}" download title="Télécharger cette archive">Télécharger</a>
+            <button class="btn btn-ghost btn-sm" style="color: #DC2626;" onclick="deleteArchive('${escapeHTML(archive.filename)}')" title="Supprimer cette archive">🗑️ Supprimer</button>
+          </td>
         </tr>
       `).join('');
     } catch (err) {
@@ -445,6 +448,26 @@ document.addEventListener('DOMContentLoaded', () => {
       openModal(modalChart);
     } catch (err) {
       alert(`Erreur historique : ${err.message}`);
+    }
+  };
+
+  // Suppression d'une archive
+  window.deleteArchive = async function(filename) {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement cette version archivée ?\n\nFichier : ${filename}`)) {
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl('/api/archives/' + encodeURIComponent(filename)), {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        loadArchives();
+      } else {
+        alert('Erreur : ' + (data.message || 'Impossible de supprimer cette archive.'));
+      }
+    } catch (err) {
+      alert('Erreur réseau lors de la suppression : ' + err.message);
     }
   };
 

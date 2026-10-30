@@ -18,6 +18,7 @@ const {
   loadDatabase,
   listDatabaseArchives,
   getDatabaseArchive,
+  deleteDatabaseArchive,
   ingestCSVContent
 } = require('../src/ingest');
 
@@ -183,6 +184,15 @@ async function runTests() {
     const archive = JSON.parse(getDatabaseArchive(newArchive.filename));
     assert(archive.database.records, 'L’archive doit contenir l’ancienne base');
     assert.strictEqual(archive.importedCsv, csv, 'L’archive doit conserver le CSV importé');
+  });
+
+  await it('Devrait supprimer une version archivée et la retirer du stockage', () => {
+    const archives = listDatabaseArchives();
+    assert(archives.length > 0, 'Il doit y avoir au moins une archive créée par le test');
+    const target = archives[0].filename;
+    const deleted = deleteDatabaseArchive(target);
+    assert.strictEqual(deleted, true, 'deleteDatabaseArchive doit retourner true');
+    assert.strictEqual(getDatabaseArchive(target), null, 'getDatabaseArchive doit renvoyer null après suppression');
   });
 
   // 3. Test Export Facturation
