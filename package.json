@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/server.js",
+    "restart": "bash scripts/restart.sh",
     "ingest": "node src/ingest.js",
     "export": "node src/export.js",
     "sync-mail": "node scripts/sync_mail.js",
