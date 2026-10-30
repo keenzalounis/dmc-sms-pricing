@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "host": "imap.gmail.com",
+  "port": 993,
+  "secure": true,
+  "user": "dmc.tarifs.sinch@gmail.com",
+  "password": "",
+  "allowedSenders": [
+    "@sinch.com"
+  ],
+  "requireAttachmentExtension": ".csv",
+  "markAsRead": true,
+  "scheduleTime": "02:00"
+}
