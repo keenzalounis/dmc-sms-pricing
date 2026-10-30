@@ -217,23 +217,23 @@
 
   <!-- MODAL ANALYSES PYTHON (MATPLOTLIB / SEABORN) -->
   <div id="modal-python-charts" class="modal">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg charts-dialog">
       <div class="modal-header">
         <div>
           <h3>Analyses & graphiques</h3>
-          <span class="subtitle">Comparaison des tarifs par pays et évolution annuelle, générées en Python</span>
+          <span class="subtitle">Comparaison par pays et évolution des tarifs historisés</span>
         </div>
         <button class="modal-close" data-close="modal-python-charts">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="charts-toolbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <p class="text-muted" style="margin:0;">Comparaison des moyennes par pays (France mise en évidence) et évolution annuelle des tarifs historisés.</p>
+        <div class="charts-toolbar">
+          <p class="text-muted">Les prix moyens sont calculés sur les opérateurs de chaque pays. La tendance utilise les dates réellement présentes dans l’historique ; elle n’invente pas de points manquants.</p>
           <button id="btn-trigger-py-generate" class="btn btn-primary btn-sm">
             Générer les graphiques
           </button>
         </div>
         <div id="py-generate-status" class="alert" style="display:none;"></div>
-        <div id="py-charts-gallery" class="py-charts-grid" style="display:flex; flex-direction:column; gap:20px;">
+        <div id="py-charts-gallery" class="py-charts-grid">
           <p class="text-center text-muted">Chargement des graphiques...</p>
         </div>
       </div>

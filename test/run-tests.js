@@ -11,6 +11,7 @@ const path = require('path');
 const {
   parseCSV,
   parsePrice,
+  validateCSVRows,
   normalizeDate,
   buildRecordKey,
   ingestRows,
@@ -82,7 +83,22 @@ async function runTests() {
   });
 
   await it('Devrait rejeter un CSV qui ne contient aucun tarif reconnu', () => {
+    const databaseBefore = fs.readFileSync(dbPath, 'utf-8');
     assert.throws(() => ingestCSVContent('Pays,Nom\nFrance,Orange'), /Aucune ligne de tarif valide/);
+    assert.strictEqual(fs.readFileSync(dbPath, 'utf-8'), databaseBefore, 'Un fichier invalide ne doit pas modifier la base');
+  });
+
+  await it('Devrait rejeter les lignes invalides avant toute ingestion', () => {
+    const csv = 'Country,Operator,Price\nFrance,SFR,0.025\nSpain,Movistar,prix-invalide';
+    const errors = validateCSVRows(parseCSV(csv));
+    assert.deepStrictEqual(errors, ['Ligne 3 : tarif invalide.']);
+    assert.throws(() => ingestCSVContent(csv), /Ligne 3 : tarif invalide/);
+    assert(Number.isNaN(parsePrice('0.025 EUR')), 'Un montant avec texte superflu ne doit pas être accepté');
+  });
+
+  await it('Devrait accepter les colonnes d’une mise à jour Sinch', () => {
+    const rows = parseCSV('Country;Operator;Old Price;New Price;Valid From\nFrance;SFR;0,025;0,03;2026-10-01');
+    assert.deepStrictEqual(validateCSVRows(rows), []);
   });
 
   await it('Devrait conserver les apostrophes de noms de pays et lire les décimales françaises', () => {
