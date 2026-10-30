@@ -1,0 +1,16 @@
+Product,Country,Operator,Network,CC,MCC,MNC,Old Price,New Price,Valid From
+SFRBu_TEST_01,France,SFR,SFR,+33,208,10,0.02450,0.02890,2026-11-01
+SFRBu_TEST_02,France,Orange,Orange,+33,208,01,0.02600,0.02450,2026-11-01
+SFRBu_TEST_03,France,Bouygues Telecom,Bouygues,+33,208,20,0.02550,0.02700,2026-11-01
+SFRBu_TEST_04,Spain,Movistar,Telefonica,+34,214,07,0.03800,0.04250,2026-11-01
+SFRBu_TEST_05,Spain,Vodafone,Vodafone Spain,+34,214,01,0.04100,0.03750,2026-11-01
+SFRBu_TEST_06,Germany,Telekom,Deutsche Telekom,+49,262,01,0.05200,0.05800,2026-11-01
+SFRBu_TEST_07,Germany,Vodafone,Vodafone D2,+49,262,02,0.05100,0.04850,2026-11-01
+SFRBu_TEST_08,Italy,TIM,Telecom Italia,+39,222,01,0.03400,0.03950,2026-11-01
+SFRBu_TEST_09,Italy,Vodafone,Vodafone Omnitel,+39,222,10,0.03600,0.03300,2026-11-01
+SFRBu_TEST_10,United Kingdom,EE,Everything Everywhere,+44,234,30,0.02900,0.03250,2026-11-01
+SFRBu_TEST_11,United Kingdom,Vodafone,Vodafone UK,+44,234,15,0.03100,0.02850,2026-11-01
+SFRBu_TEST_12,United States,AT&T,AT&T Mobility,+1,310,410,0.01250,0.01450,2026-11-01
+SFRBu_TEST_13,United States,Verizon,Verizon Wireless,+1,311,480,0.01300,0.01200,2026-11-01
+SFRBu_TEST_14,Switzerland,Swisscom,Swisscom Mobile,+41,228,01,0.04500,0.04900,2026-11-01
+SFRBu_TEST_15,San Marino,San Marino Telecom,San Marino Telecom,+378,292,01,0.07700,0.06500,2026-11-01
