@@ -1,0 +1,4 @@
+Product,Country,Operator,Network,CC,MCC,MNC,Old Price,New Price,Valid From
+SFRBu_ERR_01,France,SFR,SFR,+33,208,10,GRATUIT,INVALIDE,2026-11-01
+SFRBu_ERR_02,Spain,Movistar,Telefonica,+34,214,07,-0.0500,PRIX_MANQUANT,2026-11-01
+SFRBu_ERR_03,Germany,Telekom,Telekom,+49,262,01,0.0000,0.0000,2026-11-01

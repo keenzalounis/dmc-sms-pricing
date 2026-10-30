@@ -1,0 +1,4 @@
+Identifiant;Nom;Statut;Date_Validation;Commentaire
+REF_001;France Test;Actif;2026-11-01;Fichier test sans colonne de tarif
+REF_002;Espagne Test;En attente;2026-11-01;Ce fichier doit declencher une alerte
+REF_003;Italie Test;Inactif;2026-11-01;Colonnes obligatoires Operator et Price manquantes

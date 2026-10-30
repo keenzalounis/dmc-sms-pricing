@@ -1,0 +1,17 @@
+Product,Country,Operator,Network,CC,MCC,MNC,Old Price,New Price,Valid From
+SFRBu_INTL_MA01,Morocco,Maroc Telecom,Itissalat Al-Maghrib,+212,604,01,0.08200,0.08900,2026-11-15
+SFRBu_INTL_MA02,Morocco,Orange Maroc,Medi Telecom,+212,604,00,0.08400,0.07900,2026-11-15
+SFRBu_INTL_MA03,Morocco,Inwi,Wana Corporate,+212,604,02,0.08300,0.08500,2026-11-15
+SFRBu_INTL_DZ01,Algeria,Mobilis,ATM Mobilis,+213,603,01,0.21310,0.22500,2026-11-15
+SFRBu_INTL_DZ02,Algeria,Djezzy,OTA Djezzy,+213,603,02,0.15600,0.14900,2026-11-15
+SFRBu_INTL_DZ03,Algeria,Ooredoo,Wataniya Telecom,+213,603,03,0.19470,0.20100,2026-11-15
+SFRBu_INTL_SN01,Senegal,Orange Senegal,Sonatel,+221,608,01,0.11200,0.11900,2026-11-15
+SFRBu_INTL_SN02,Senegal,Free Senegal,Saga Africa,+221,608,02,0.10800,0.10400,2026-11-15
+SFRBu_INTL_CI01,Ivory Coast,Orange CI,Orange Cote d'Ivoire,+225,612,03,0.09500,0.09900,2026-11-15
+SFRBu_INTL_CI02,Ivory Coast,MTN CI,MTN Cote d'Ivoire,+225,612,05,0.09400,0.09200,2026-11-15
+SFRBu_INTL_JP01,Japan,NTT DoCoMo,NTT DoCoMo,+81,440,10,0.04800,0.05200,2026-11-15
+SFRBu_INTL_JP02,Japan,SoftBank,SoftBank Corp,+81,440,20,0.04900,0.04600,2026-11-15
+SFRBu_INTL_AE01,United Arab Emirates,Etisalat,Emirates Telecom,+971,424,02,0.06200,0.06700,2026-11-15
+SFRBu_INTL_AE02,United Arab Emirates,du,Emirates Integrated,+971,424,03,0.06100,0.05900,2026-11-15
+SFRBu_INTL_BR01,Brazil,Vivo,Telefonica Brasil,+55,724,06,0.03500,0.03800,2026-11-15
+SFRBu_INTL_BR02,Brazil,Claro,Claro Brasil,+55,724,05,0.03400,0.03200,2026-11-15
