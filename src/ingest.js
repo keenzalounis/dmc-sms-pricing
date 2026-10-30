@@ -13,6 +13,7 @@ const path = require('path');
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'database.json');
 const BASE_CSV_PATH = path.join(__dirname, '..', 'data', 'base_tarifs.csv');
+const OFFICIAL_BASE_CSV = path.join(__dirname, '..', 'data', 'sinch_pricelist__20261022.csv');
 const ARCHIVES_DIR = path.join(__dirname, '..', 'data', 'archives');
 
 /**
@@ -279,8 +280,104 @@ function deleteDatabaseArchive(filename) {
   }
   const archivePath = path.join(ARCHIVES_DIR, filename);
   if (!fs.existsSync(archivePath)) return false;
+
+  // 1. Restaurer l'état antérieur de la base sauvegardé dans cette archive
+  try {
+    const raw = fs.readFileSync(archivePath, 'utf-8');
+    const archiveData = JSON.parse(raw);
+    if (archiveData && archiveData.database && archiveData.database.records && Object.keys(archiveData.database.records).length > 0) {
+      saveDatabase(archiveData.database);
+    }
+  } catch (e) {
+    console.warn(`[WARN] Impossible de restaurer l'état antérieur avant suppression : ${e.message}`);
+  }
+
+  // 2. Supprimer le fichier d'archive
   fs.unlinkSync(archivePath);
+
+  // 3. Si toutes les archives ont été supprimées, réaligner automatiquement sur le catalogue de base propre (hausses à 0)
+  const remaining = listDatabaseArchives();
+  if (remaining.length === 0) {
+    resetToBaseCatalog();
+  }
+
   return true;
+}
+
+/**
+ * Réinitialise la base au catalogue de base officiel Sinch (protégé).
+ * Remet toutes les variations (hausses/baisses) à 0.
+ * Le fichier de base officiel ne peut JAMAIS être supprimé.
+ */
+function resetToBaseCatalog() {
+  const baseFile = fs.existsSync(OFFICIAL_BASE_CSV) ? OFFICIAL_BASE_CSV : BASE_CSV_PATH;
+  if (!fs.existsSync(baseFile)) {
+    throw new Error('Fichier de base officiel introuvable.');
+  }
+
+  const content = fs.readFileSync(baseFile, 'utf-8');
+  const rows = parseCSV(content);
+
+  const db = {
+    meta: {
+      lastUpdated: new Date().toISOString(),
+      currency: 'EUR',
+      totalDestinations: 0
+    },
+    records: {}
+  };
+
+  for (const row of rows) {
+    const country = row['Country'] || row['country'] || '';
+    const operator = row['Operator'] || row['operator'] || '';
+    const mcc = row['MCC'] || row['mcc'] || '';
+    const mnc = row['MCC/MNC'] || row['MNC'] || row['mnc'] || '';
+    const serviceType = row['Service type'] || row['service_type'] || '';
+    const originator = row['Originator'] || row['originator'] || '';
+    const price = parsePrice(row['Price'] || row['price']);
+    const currency = row['Currency'] || row['currency'] || 'EUR';
+
+    if (!country || !operator || !Number.isFinite(price) || price <= 0) continue;
+
+    const key = buildRecordKey(country, operator, mcc, mnc);
+    const validFrom = row['Valid From'] || row['EffectiveDate'] || '2026-10-22';
+
+    db.records[key] = {
+      id: key,
+      country,
+      operator,
+      network: operator,
+      cc: '',
+      mcc,
+      mnc,
+      serviceType,
+      originator,
+      product: 'SFRBu_Base_Sinch',
+      currentPrice: price,
+      previousPrice: price, // Égaux -> aucune variation active
+      priceChange: 0,       // 0 hausse !
+      percentChange: 0,     // 0% de variation !
+      validFrom: normalizeDate(validFrom),
+      currency,
+      history: [
+        {
+          date: normalizeDate(validFrom),
+          price: price,
+          oldPrice: price,
+          product: 'SFRBu_Base_Sinch',
+          source: path.basename(baseFile)
+        }
+      ]
+    };
+  }
+
+  saveDatabase(db);
+  return {
+    totalDestinations: Object.keys(db.records).length,
+    totalIncreases: 0,
+    totalDecreases: 0,
+    message: 'Base réinitialisée avec succès au catalogue de base officiel. Hausses et baisses remises à 0.'
+  };
 }
 
 /**
@@ -488,6 +585,7 @@ module.exports = {
   listDatabaseArchives,
   getDatabaseArchive,
   deleteDatabaseArchive,
+  resetToBaseCatalog,
   ingestRows,
   ingestFile,
   ingestCSVContent

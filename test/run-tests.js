@@ -19,6 +19,7 @@ const {
   listDatabaseArchives,
   getDatabaseArchive,
   deleteDatabaseArchive,
+  resetToBaseCatalog,
   ingestCSVContent
 } = require('../src/ingest');
 
@@ -212,6 +213,18 @@ async function runTests() {
     assert(csv.startsWith('﻿'), 'Le CSV doit inclure le BOM UTF-8');
     assert(csv.includes('Tarif_Facture_Client_EUR'), 'Le CSV doit contenir le header facturation');
     assert(csv.includes(';'), 'Le séparateur doit être le point-virgule');
+  });
+
+  await it('Devrait réinitialiser la base au catalogue officiel et remettre toutes les hausses à 0', () => {
+    const res = resetToBaseCatalog();
+    assert(res.totalDestinations > 0, 'Le catalogue doit comporter des destinations');
+    assert.strictEqual(res.totalIncreases, 0, 'Les hausses doivent être à 0');
+    assert.strictEqual(res.totalDecreases, 0, 'Les baisses doivent être à 0');
+
+    const db = loadDatabase();
+    const records = Object.values(db.records);
+    const hasAnyChange = records.some(r => r.priceChange !== 0 || r.percentChange !== 0);
+    assert.strictEqual(hasAnyChange, false, 'Toutes les variations doivent être strictement remises à 0');
   });
 
   // 4. Test Connecteur Email & Synchronisation Sinch
