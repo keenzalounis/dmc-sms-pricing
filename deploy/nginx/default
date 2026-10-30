@@ -1,0 +1,33 @@
+server {
+    listen 443 ssl;
+    server_name vm.inspear.org;
+
+    ssl_certificate /etc/letsencrypt/live/vm.inspear.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vm.inspear.org/privkey.pem;
+
+    location = /dmc {
+        return 301 /dmc/;
+    }
+
+    location /dmc/ {
+        proxy_pass http://127.0.0.1:3002/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+server {
+    listen 80;
+    server_name vm.inspear.org;
+    return 301 https://$host$request_uri;
+}
