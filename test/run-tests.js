@@ -229,6 +229,52 @@ async function runTests() {
     assert.strictEqual(attachments[0].content.trim(), csvData.trim());
   });
 
+  await it('Devrait traiter l\'e-mail officiel Sinch (Dear SFR Business Solutions...) avec structure multipart imbriquée', () => {
+    const sinchCSV = [
+      'Product,Country,Operator,Network,CC,MCC,MNC,Old Price,New Price,Valid From',
+      'SFRBu_Test,San Marino,San Marino Telecom,San Marino Telecom,+378,292,01,0.04510,0.07700,Oct 27 2026'
+    ].join('\n');
+    const b64 = Buffer.from(sinchCSV).toString('base64');
+
+    const rawSinchEmail = [
+      'From: "Sinch Pricing Notifications" <rates@sinch.com>',
+      'To: dmc.tarifs.sinch@gmail.com',
+      'Subject: Sinch Price Change Notification - SFR Business Solutions',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="--outer_boundary_sinch_123"',
+      '',
+      '----outer_boundary_sinch_123',
+      'Content-Type: multipart/alternative; boundary="--inner_boundary_sinch_456"',
+      '',
+      '----inner_boundary_sinch_456',
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      'Dear SFR Business Solutions,',
+      'Attached you will find price changes for particular destinations and networks. At your convenience please check the date the new prices apply.',
+      'If you have any questions or any further needs please don’t hesitate to contact your Account Manager.',
+      'We truly appreciate your business and look forward to being a part of your continued growth and success.',
+      'Best regards,',
+      'The Sinch Team',
+      '',
+      '----inner_boundary_sinch_456--',
+      '',
+      '----outer_boundary_sinch_123',
+      'Content-Type: text/csv; name="PriceChangeNotification.csv"',
+      'Content-Disposition: attachment; filename="PriceChangeNotification.csv"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      b64,
+      '',
+      '----outer_boundary_sinch_123--'
+    ].join('\r\n');
+
+    const attachments = extractCSVAttachments(rawSinchEmail);
+    assert.strictEqual(attachments.length, 1, 'Devrait extraire la pièce jointe CSV');
+    assert.strictEqual(attachments[0].filename, 'PriceChangeNotification.csv');
+    assert(attachments[0].content.includes('SFRBu_Test'), 'Le contenu du CSV doit être fidèlement extrait');
+    assert(attachments[0].content.includes('San Marino'), 'Le pays doit être présent');
+  });
+
   await it('Devrait ignorer les pièces jointes non CSV (ex: pdf, exe, images)', () => {
     const mimeMessage = [
       'From: pricing@sinch.com',
