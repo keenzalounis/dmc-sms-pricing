@@ -495,6 +495,7 @@ async function syncMailbox() {
 
           // Appel direct du moteur d'ingestion existant
           const ingestResult = ingestCSVContent(att.content, safeName);
+          const totalChanged = (ingestResult.countCreated || 0) + (ingestResult.countUpdated || 0);
 
           results.csvProcessed++;
           results.details.push({
@@ -502,14 +503,14 @@ async function syncMailbox() {
             from,
             subject,
             filename: att.filename,
-            recordsUpdated: ingestResult.recordsUpdated,
-            newCount: ingestResult.newCount,
-            increases: ingestResult.increases,
-            decreases: ingestResult.decreases,
-            archiveFile: ingestResult.archiveFile,
+            recordsUpdated: totalChanged,
+            countCreated: ingestResult.countCreated || 0,
+            countUpdated: ingestResult.countUpdated || 0,
+            total: ingestResult.total,
+            archiveFile: safeName,
             status: 'Ingéré avec succès'
           });
-          console.log(`[MAIL] ✓ Fichier "${att.filename}" ingéré (${ingestResult.recordsUpdated} tarifs actualisés, archive: ${ingestResult.archiveFile})`);
+          console.log(`[MAIL] ✓ Fichier "${att.filename}" ingéré (${totalChanged} tarifs actualisés, total référentiel: ${ingestResult.total})`);
         }
 
         // 7. Marquer comme lu UNIQUEMENT si un CSV a été ingéré avec succès
