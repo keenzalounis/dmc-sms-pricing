@@ -25,7 +25,7 @@ const {
 } = require('./mail_sync');
 
 const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const CHARTS_DIR = path.join(PUBLIC_DIR, 'charts');
 
