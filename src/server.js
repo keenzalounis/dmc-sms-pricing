@@ -15,7 +15,8 @@ const {
   ingestCSVContent,
   listDatabaseArchives,
   getDatabaseArchive,
-  deleteDatabaseArchive
+  deleteDatabaseArchive,
+  resetToBaseCatalog
 } = require('./ingest');
 const { getBillingData, toCSV } = require('./export');
 const {
@@ -183,6 +184,17 @@ const server = http.createServer((req, res) => {
       sendJSON(res, 200, { archives: listDatabaseArchives() });
     } catch (err) {
       sendError(res, 500, `Erreur de lecture des archives : ${err.message}`);
+    }
+    return;
+  }
+
+  // 5b. POST /api/reset-base : Réinitialise la base au catalogue de base (remet les hausses à 0)
+  if (pathname === '/api/reset-base' && method === 'POST') {
+    try {
+      const result = resetToBaseCatalog();
+      sendJSON(res, 200, { success: true, details: result });
+    } catch (err) {
+      sendError(res, 500, `Erreur lors de la réinitialisation : ${err.message}`);
     }
     return;
   }

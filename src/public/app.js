@@ -459,6 +459,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // Réinitialisation au catalogue de base (remise à 0 des hausses)
+  const btnResetBase = document.getElementById('btn-reset-base');
+  if (btnResetBase) {
+    btnResetBase.addEventListener('click', async () => {
+      const confirmed = confirm(
+        "Êtes-vous sûr de vouloir réinitialiser la base au catalogue officiel Sinch ?\n\n" +
+        "- Toutes les hausses et baisses récentes seront remises à 0.\n" +
+        "- Les 930 tarifs officiels du catalogue de base seront restaurés.\n" +
+        "- Le fichier de base officiel est protégé et ne sera pas altéré."
+      );
+      if (!confirmed) return;
+
+      btnResetBase.disabled = true;
+      btnResetBase.textContent = "Réinitialisation en cours...";
+
+      try {
+        const res = await fetch(apiUrl('/api/reset-base'), { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          loadKPIs();
+          loadPrices();
+          loadArchives();
+          alert("✓ Base réinitialisée avec succès ! Les hausses et baisses ont été remises à 0.");
+        } else {
+          alert("Erreur lors de la réinitialisation : " + (data.message || 'Échec'));
+        }
+      } catch (err) {
+        alert("Erreur réseau : " + err.message);
+      } finally {
+        btnResetBase.disabled = false;
+        btnResetBase.textContent = "↺ Réinitialiser au catalogue de base (Remise à 0)";
+      }
+    });
+  }
+
   // Suppression d'une archive
   window.deleteArchive = async function(filename) {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement cette version archivée ?\n\nFichier : ${filename}`)) {
@@ -470,6 +505,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        loadKPIs();
+        loadPrices();
         loadArchives();
       } else {
         alert('Erreur : ' + (data.message || 'Impossible de supprimer cette archive.'));
