@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td><strong>${escapeHTML(r.country)}</strong></td>
             <td>${escapeHTML(r.operator)}</td>
             <td><span class="badge-code">${escapeHTML(r.cc || '-')}</span></td>
-            <td><span class="badge-code">${escapeHTML(r.mcc || '-')}/${escapeHTML(r.mnc || '-')}</span></td>
+            <td>${formatMccMnc(r.mcc, r.mnc)}</td>
             <td class="mono"><strong>${r.currentPrice.toFixed(5)} €</strong></td>
             <td class="mono text-muted">${r.previousPrice ? r.previousPrice.toFixed(5) + ' €' : '-'}</td>
             <td>${badgeHtml}</td>
@@ -525,5 +525,21 @@ document.addEventListener('DOMContentLoaded', () => {
       "'": '&#39;',
       '"': '&quot;'
     }[tag] || tag));
+  }
+
+  function formatMccMnc(mcc, mnc) {
+    const fullText = `${mcc || '-'}/${mnc || '-'}`;
+    if (!mnc || mnc.length <= 16) {
+      return `<span class="badge-code" title="${escapeHTML(fullText)}">${escapeHTML(fullText)}</span>`;
+    }
+
+    const mncList = mnc.split(/[,;\s]+/).filter(Boolean);
+    if (mncList.length > 2) {
+      const preview = mncList.slice(0, 2).join(', ');
+      const remainingCount = mncList.length - 2;
+      return `<span class="badge-code" title="${escapeHTML(fullText)}" style="cursor: help;">${escapeHTML(mcc || '-')}/${escapeHTML(preview)} <small style="color: #6C757D; font-weight: normal;">(+${remainingCount})</small></span>`;
+    }
+
+    return `<span class="badge-code" title="${escapeHTML(fullText)}" style="max-width: 140px; display: inline-block; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">${escapeHTML(fullText)}</span>`;
   }
 });
