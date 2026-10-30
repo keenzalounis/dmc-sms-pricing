@@ -14,7 +14,8 @@ const {
   loadDatabase,
   ingestCSVContent,
   listDatabaseArchives,
-  getDatabaseArchive
+  getDatabaseArchive,
+  deleteDatabaseArchive
 } = require('./ingest');
 const { getBillingData, toCSV } = require('./export');
 const {
@@ -74,7 +75,7 @@ const server = http.createServer((req, res) => {
 
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (method === 'OPTIONS') {
@@ -202,6 +203,22 @@ const server = http.createServer((req, res) => {
       res.end(archive);
     } catch (err) {
       sendError(res, 400, `Impossible de télécharger cette archive : ${err.message}`);
+    }
+    return;
+  }
+
+  // 6b. DELETE /api/archives/:filename : Suppression d'une version archivée
+  if (pathname.startsWith('/api/archives/') && method === 'DELETE') {
+    try {
+      const filename = decodeURIComponent(pathname.slice('/api/archives/'.length));
+      const deleted = deleteDatabaseArchive(filename);
+      if (!deleted) {
+        sendError(res, 404, 'Archive introuvable');
+        return;
+      }
+      sendJSON(res, 200, { success: true, message: 'Archive supprimée avec succès' });
+    } catch (err) {
+      sendError(res, 400, `Impossible de supprimer cette archive : ${err.message}`);
     }
     return;
   }
