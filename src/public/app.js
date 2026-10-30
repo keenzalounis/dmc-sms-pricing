@@ -57,6 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
   loadKPIs();
   loadPrices();
 
+  // Auto-rafraîchissement discret toutes les 30 secondes en arrière-plan
+  setInterval(() => {
+    loadKPIs();
+    if (!searchInput.value.trim()) {
+      loadPrices();
+    }
+  }, 30000);
+
   // --- Gestionnaires d'événements ---
   btnRefresh.addEventListener('click', () => {
     loadKPIs();
