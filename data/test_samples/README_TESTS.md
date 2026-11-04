@@ -1,48 +1,20 @@
-# DMC SMS Pricing - Échantillons de fichiers de test
+# Échantillons de test DMC SMS Pricing
 
-Ce dossier contient 4 jeux de données types pour valider chaque fonctionnalité de l'application (ingestion, calculs, historisation, archivage et alertes de sécurité).
+Les fichiers `01` et `02` contiennent des données valides à importer dans l'application. Les fichiers `03`, `04`, `06`, `07` et `08` servent à vérifier les rejets de schéma ou de tarif. Un import manuel invalide affiche une erreur, mais ne déclenche pas d'e-mail : les alertes sont réservées aux messages Sinch traités par la relève automatique.
 
----
+## Nouveaux scénarios
 
-## 1. Fichier `01_notification_hausses_baisses_valide.csv`
-* **Scénario :** Notification officielle Sinch standard (Europe / USA).
-* **Objectif :** Vérifier que les prix actuels sont actualisés, les hausses (+15% à +25%) affichées en badge rouge, les baisses (-10%) en badge vert, et qu'une version archivée est créée.
-* **Résultat attendu :**
-  - Ingestion réussie.
-  - Compteur "Dernières hausses" mis à jour.
-  - Archive téléchargeable dans "Historique des versions".
+| Fichier | Scénario | Résultat attendu |
+|---|---|---|
+| `05_test_notification_valide.csv` | Deux tarifs de test valides, une hausse et une baisse | Import accepté et historisé |
+| `06_test_old_price_sans_new_price.csv` | Ancien tarif fourni sans nouveau tarif | Rejet avec raison précise ; alerte si reçu par e-mail |
+| `07_test_tarifs_invalides.csv` | Nouveau tarif non numérique ou négatif | Rejet ; alerte si reçu par e-mail |
+| `08_test_colonnes_incorrectes.csv` | En-têtes incompatibles avec le format Sinch | Rejet ; alerte si reçu par e-mail |
 
----
+## Exécution locale
 
-## 2. Fichier `02_notification_destinations_internationales.csv`
-* **Scénario :** Notification de destinations internationales (Afrique, Asie, Moyen-Orient, Amérique Latine).
-* **Destinations incluses :** Maroc, Algérie, Sénégal, Côte d'Ivoire, Japon, Émirats Arabes Unis, Brésil.
-* **Objectif :** Tester la recherche par pays/indicatif (+212, +213, +221...), l'export pour la facturation internationale et la mise à jour de l'historique par opérateur.
+1. Lancez `npm test`. Les tests valident aussi le chemin d'alerte CSV avec un expéditeur simulé : aucun e-mail réel n'est envoyé.
+2. Pour tester l'import valide, utilisez `05_test_notification_valide.csv` dans « Mettre à jour les tarifs ».
+3. Pour vérifier le comportement complet de la relève, placez un message de test provenant d'un expéditeur autorisé dans la boîte configurée et lancez la relève manuelle. L'envoi réel d'alerte exige un compte SMTP fonctionnel et un destinataire défini dans `data/mail_config.json`; ne partagez pas ce fichier et ne le versionnez pas.
 
----
-
-## 3. Fichier `03_fichier_invalide_colonnes_manquantes.csv`
-* **Scénario :** Fichier reçu sans les colonnes obligatoires (`Operator`, `Price` manquants).
-* **Objectif :** Vérifier la sécurité et le système d'alerte :
-  - L'application **rejette** immédiatement le fichier.
-  - La base active `database.json` est **strictement protégée** et non modifiée.
-  - Un e-mail d'alerte automatique est envoyé à **`kenza.lounis@sfr.com`** précisant les colonnes manquantes.
-
----
-
-## 4. Fichier `04_fichier_vide_ou_corrompu.csv`
-* **Scénario :** Données tarifaires corrompues (prix non numériques, valeurs négatives).
-* **Objectif :** Vérifier la robustesse du parseur : rejet automatique avec message d'erreur explicite.
-
----
-
-## Comment exécuter un test :
-
-### Méthode A : Via l'interface web (Glisser-Déposer)
-1. Ouvrez `https://vm.inspear.org/dmc/`.
-2. Cliquez sur **Mettre à jour les tarifs**.
-3. Glissez-déposez l'un des fichiers ci-dessus et cliquez sur **Lancer l'ingestion**.
-
-### Méthode B : Par relève d'e-mail automatique
-1. Envoyez un e-mail à `dmc.tarifs.sinch@gmail.com` avec le fichier en pièce jointe.
-2. Sur la VM : `npm run sync-mail`.
+La génération des graphiques détaillés nécessite Python 3 et les dépendances de `requirements.txt`. Les mini-courbes dans le tableau restent visibles sans Python.

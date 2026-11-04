@@ -162,6 +162,40 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Graphique Python produit à la demande pour un seul opérateur.
+  if (pathname === '/api/history-chart' && method === 'GET') {
+    const id = query.id;
+    if (!id) {
+      sendError(res, 400, 'Paramètre "id" manquant.');
+      return;
+    }
+    if (!loadDatabase().records[id]) {
+      sendError(res, 404, 'Opérateur introuvable.');
+      return;
+    }
+
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'generate_record_chart.py');
+    const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+    execFile(python, [scriptPath, id], {
+      timeout: 30000,
+      maxBuffer: 5 * 1024 * 1024,
+      encoding: 'buffer'
+    }, (error, stdout, stderr) => {
+      if (error) {
+        const detail = stderr && stderr.length ? stderr.toString('utf-8').trim() : error.message;
+        console.error(`[PYTHON] Échec du graphique ${id} : ${detail}`);
+        sendError(res, 503, 'Graphique Python indisponible. Vérifiez Python 3 et les dépendances définies dans requirements.txt.');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'no-store'
+      });
+      res.end(stdout);
+    });
+    return;
+  }
+
   // 4. GET /api/export : Téléchargement du fichier Facturation CSV
   if (pathname === '/api/export' && method === 'GET') {
     const margin = parseFloat(query.margin || 0);

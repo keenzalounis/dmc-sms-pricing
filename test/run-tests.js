@@ -30,6 +30,7 @@ const {
   extractAttachmentsRecursive,
   validateSinchEmailFormat,
   validateCSVColumns,
+  processCSVAttachment,
   calculateMsUntilNextSchedule,
   parseMIMEHeaders,
   decodeQuotedPrintable
@@ -370,15 +371,77 @@ async function runTests() {
     assert.strictEqual(all[0].isCSV, false, 'Le fichier Excel doit être identifié comme non-CSV');
   });
 
+  await it('Devrait prioriser l’extension et refuser un fichier .xlsx même déclaré text/csv', () => {
+    const rawMime = [
+      'From: rates@sinch.com',
+      'Content-Type: multipart/mixed; boundary="BOUNDARY"',
+      '',
+      '--BOUNDARY',
+      'Content-Type: text/csv',
+      'Content-Disposition: attachment; filename="PriceChangeNotification.xlsx"',
+      '',
+      'Country,Operator,New Price',
+      'France,SFR,0.03',
+      '--BOUNDARY--'
+    ].join('\r\n');
+
+    const attachments = extractAttachmentsRecursive(rawMime, []);
+    assert.strictEqual(attachments.length, 1);
+    assert.strictEqual(attachments[0].isCSV, false);
+  });
+
   await it('Devrait rejeter un CSV dont les colonnes obligatoires (Country, Operator, Price) sont absentes', () => {
     const badCSV = 'Identifiant;Nom;Statut;Commentaire\n1;Test;OK;Pas de prix';
     const checkBad = validateCSVColumns(badCSV, 'test_mauvais.csv');
     assert.strictEqual(checkBad.valid, false, 'Un CSV sans colonnes tarifaires doit être rejeté');
-    assert(checkBad.reason.includes('Colonnes obligatoires manquantes'), 'Le motif doit lister les colonnes manquantes');
+    assert(checkBad.reason.includes('colonnes Sinch requises absentes'), 'Le motif doit lister les colonnes manquantes');
 
     const goodCSV = 'Country,Operator,Old Price,New Price,Valid From\nFrance,SFR,0.02,0.03,2026-11-01';
     const checkGood = validateCSVColumns(goodCSV, 'PriceChangeNotification.csv');
     assert.strictEqual(checkGood.valid, true, 'Le CSV officiel avec Country, Operator, Price doit être accepté');
+  });
+
+  await it('Devrait rejeter une mise à jour Old Price sans New Price', () => {
+    const csv = fs.readFileSync(path.join(__dirname, '..', 'data', 'test_samples', '06_test_old_price_sans_new_price.csv'), 'utf-8');
+    const check = validateCSVColumns(csv, '06_test_old_price_sans_new_price.csv');
+    assert.strictEqual(check.valid, false);
+    assert(check.reason.includes('Old Price doit aussi contenir New Price'));
+  });
+
+  await it('Devrait envoyer une alerte simulée pour un CSV tarifaire malformé', async () => {
+    let alertOptions;
+    const processed = await processCSVAttachment({
+      filename: '07_test_tarifs_invalides.csv',
+      content: fs.readFileSync(path.join(__dirname, '..', 'data', 'test_samples', '07_test_tarifs_invalides.csv'), 'utf-8')
+    }, {
+      sender: 'rates@sinch.com',
+      subject: 'Sinch Price Change Notification'
+    }, async options => {
+      alertOptions = options;
+      return { success: true };
+    });
+
+    assert.strictEqual(processed.success, false);
+    assert.strictEqual(processed.alertSent, true);
+    assert.strictEqual(alertOptions.type, 'CSV_SCHEMA_INVALID');
+    assert.strictEqual(alertOptions.sender, 'rates@sinch.com');
+    assert(alertOptions.reason.includes('tarif invalide'));
+  });
+
+  await it('Devrait signaler explicitement l’échec de remise d’une alerte CSV', async () => {
+    const processed = await processCSVAttachment({
+      filename: '08_test_colonnes_incorrectes.csv',
+      content: fs.readFileSync(path.join(__dirname, '..', 'data', 'test_samples', '08_test_colonnes_incorrectes.csv'), 'utf-8')
+    }, {}, async () => ({ success: false, reason: 'SMTP indisponible' }));
+
+    assert.strictEqual(processed.success, false);
+    assert.strictEqual(processed.alertSent, false);
+    assert.strictEqual(processed.alertError, 'SMTP indisponible');
+  });
+
+  await it('Devrait reconnaître le nouvel échantillon de notification valide sans modifier la base', () => {
+    const csv = fs.readFileSync(path.join(__dirname, '..', 'data', 'test_samples', '05_test_notification_valide.csv'), 'utf-8');
+    assert.strictEqual(validateCSVColumns(csv, '05_test_notification_valide.csv').valid, true);
   });
 
   await it('Devrait calculer un délai positif et inférieur à 24h pour la planification de 02:00', () => {

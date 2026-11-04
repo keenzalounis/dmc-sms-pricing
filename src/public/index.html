@@ -86,7 +86,7 @@
               <th>Ancien Tarif (€)</th>
               <th>Variation</th>
               <th>Date d'effet</th>
-              <th>📊 Graphique d'évolution</th>
+              <th>📊 Évolution du tarif</th>
             </tr>
           </thead>
           <tbody id="prices-tbody">
@@ -193,12 +193,12 @@
         <div class="chart-canvas-container" style="background: #FFFFFF; border: 1px solid var(--border-color, #E2E6EC); border-radius: 8px; padding: 18px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <strong style="font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-              📈 Courbe d'évolution du tarif (par fichier de mise à jour)
+              📈 Graphique Python du tarif sélectionné
             </strong>
-            <span id="chart-points-count" class="badge badge-neutral" style="font-size: 11px;">1 version</span>
+            <span id="chart-points-count" class="badge badge-neutral" style="font-size: 11px;">Chargement...</span>
           </div>
-          <canvas id="operator-price-canvas" width="760" height="250" style="width: 100%; height: 250px; display: block; border-radius: 6px; background: #FAFBFD; border: 1px solid #ECEFF3;"></canvas>
-          <div id="chart-legend-info" style="font-size: 11px; color: var(--text-muted); margin-top: 10px; text-align: center;"></div>
+          <img id="operator-price-chart" alt="Graphique Python de l'évolution du tarif" style="width: 100%; max-height: 360px; object-fit: contain; display: block; border-radius: 6px; background: #FAFBFD; border: 1px solid #ECEFF3;">
+          <div id="chart-legend-info" role="status" style="font-size: 11px; color: var(--text-muted); margin-top: 10px; text-align: center;">Sélectionnez une ligne pour charger son graphique.</div>
         </div>
 
         <!-- Tableau détaillé des versions et fichiers sources -->
@@ -239,10 +239,7 @@
           </table>
         </div>
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-        <button id="btn-reset-base" class="btn btn-secondary" style="color: #DC2626; border-color: #FECACA; background: #FEF2F2;" title="Réinitialiser au référentiel officiel Sinch et remettre toutes les hausses et baisses à 0">
-          ↺ Réinitialiser au catalogue de base (Remise à 0)
-        </button>
+      <div class="modal-footer">
         <button class="btn btn-ghost" data-close="modal-archives">Fermer</button>
       </div>
     </div>

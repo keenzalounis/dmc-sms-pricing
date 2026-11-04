@@ -13,7 +13,7 @@ const tls = require('tls');
 const net = require('net');
 const fs = require('fs');
 const path = require('path');
-const { ingestCSVContent } = require('./ingest');
+const { ingestCSVContent, parseCSV, validateCSVRows } = require('./ingest');
 const { sendSinchAlert } = require('./alert_mailer');
 
 const CONFIG_PATH = path.join(__dirname, '..', 'data', 'mail_config.json');
@@ -154,7 +154,7 @@ function extractAttachmentsRecursive(mimeBlock, attachments = []) {
 
     if (filename || isAttachmentDisposition || isCSVByMime) {
       const finalFilename = filename ? path.basename(filename) : (isCSVByMime ? 'sinch_rates.csv' : 'piece_jointe');
-      const isCSV = isCSVByFilename || isCSVByMime;
+      const isCSV = filename ? isCSVByFilename : isCSVByMime;
       const encoding = (headers['content-transfer-encoding'] || '').toLowerCase().trim();
 
       let decodedContent = '';
@@ -218,32 +218,63 @@ function validateCSVColumns(csvContent, filename = '') {
     };
   }
 
-  const lines = csvContent.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim().length > 0);
-  if (lines.length < 2) {
+  const lines = csvContent.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim().length > 0);
+  const headerLine = lines[0] || '';
+  const validationErrors = validateCSVRows(parseCSV(csvContent));
+  if (validationErrors.length > 0) {
     return {
       valid: false,
-      reason: `Le fichier CSV "${filename}" ne comporte aucune ligne de données tarifaires.`
-    };
-  }
-
-  const headerLine = lines[0].toLowerCase();
-  const hasCountry = headerLine.includes('country') || headerLine.includes('pays');
-  const hasOperator = headerLine.includes('operator') || headerLine.includes('opérateur') || headerLine.includes('operateur') || headerLine.includes('network');
-  const hasPrice = headerLine.includes('price') || headerLine.includes('prix') || headerLine.includes('tarif');
-
-  if (!hasCountry || !hasOperator || !hasPrice) {
-    const missing = [];
-    if (!hasCountry) missing.push('Country (Pays)');
-    if (!hasOperator) missing.push('Operator (Réseau)');
-    if (!hasPrice) missing.push('Price / New Price (Tarif)');
-    return {
-      valid: false,
-      reason: `Colonnes obligatoires manquantes dans "${filename}" : [${missing.join(', ')}].`,
-      header: lines[0]
+      reason: `CSV non conforme dans "${filename}" : ${validationErrors.join(' ')}`,
+      header: headerLine
     };
   }
 
   return { valid: true };
+}
+
+async function sendAlertSafely(options, alertSender = sendSinchAlert) {
+  try {
+    const result = await alertSender(options);
+    return {
+      success: Boolean(result && result.success),
+      reason: result && (result.reason || result.message || result.error)
+        ? (result.reason || result.message || result.error)
+        : 'Le transport de messagerie a refusé l’envoi.'
+    };
+  } catch (error) {
+    return { success: false, reason: error.message };
+  }
+}
+
+async function processCSVAttachment(attachment, context = {}, alertSender = sendSinchAlert) {
+  const schemaCheck = validateCSVColumns(attachment.content, attachment.filename);
+  if (schemaCheck.valid) {
+    try {
+      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const safeName = `sinch_mail_${timestamp}_${path.basename(attachment.filename || 'sinch_rates.csv')}`;
+      const ingestResult = ingestCSVContent(attachment.content, safeName);
+      return { success: true, ingestResult, archiveFile: safeName };
+    } catch (error) {
+      schemaCheck.valid = false;
+      schemaCheck.reason = `Échec d’ingestion du CSV "${attachment.filename}" : ${error.message}`;
+    }
+  }
+
+  const alert = await sendAlertSafely({
+    type: 'CSV_SCHEMA_INVALID',
+    reason: schemaCheck.reason,
+    sender: context.sender || '',
+    subject: context.subject || '',
+    attachmentName: attachment.filename || '',
+    details: schemaCheck.header ? `En-tête reçu : "${schemaCheck.header}"` : undefined
+  }, alertSender);
+
+  return {
+    success: false,
+    reason: schemaCheck.reason,
+    alertSent: alert.success,
+    alertError: alert.success ? undefined : alert.reason
+  };
 }
 
 function escapeRegExp(string) {
@@ -538,24 +569,45 @@ async function syncMailbox() {
 
         results.sinchEmailsFound++;
         console.log(`[MAIL] Message #${id} reçu de : "${from}" | Sujet : "${subject}"`);
+        let messageHandled = false;
+        let messageAlertsDelivered = true;
+
+        const reportRejection = async (alertOptions, detail) => {
+          const alert = await sendAlertSafely(alertOptions);
+          const alertStatus = alert.success ? 'Alerte envoyée' : `Échec d’envoi de l’alerte : ${alert.reason}`;
+          results.details.push({
+            id,
+            from,
+            subject,
+            ...detail,
+            status: `${detail.status} - ${alertStatus}`
+          });
+          if (alert.success) {
+            messageHandled = true;
+          } else {
+            messageAlertsDelivered = false;
+            results.errors.push(`Alerte non envoyée pour le message #${id} : ${alert.reason}`);
+            console.error(`[ALERTE] Échec d'envoi pour le message #${id} : ${alert.reason}`);
+          }
+          return alert.success;
+        };
 
         // 1. VALIDATION DU FORMAT DE L'E-MAIL
         const formatCheck = validateSinchEmailFormat(subject, rawContent);
         if (!formatCheck.valid) {
           console.warn(`[ALERTE] Format d'email Sinch non conforme pour #${id} : ${formatCheck.reason}`);
-          await sendSinchAlert({
+          await reportRejection({
             type: 'EMAIL_FORMAT_INVALID',
             reason: formatCheck.reason,
             sender: from,
-            subject: subject,
-            details: 'Le sujet et le corps ne contiennent aucun mot-clé attendu pour une notification tarifaire.'
-          });
-          results.details.push({
-            id,
-            from,
             subject,
-            status: 'Rejeté (Format email non conforme) - Alerte envoyée'
+            details: 'Le sujet et le corps ne contiennent aucun mot-clé attendu pour une notification tarifaire.'
+          }, {
+            status: 'Rejeté (Format email non conforme)'
           });
+          if (config.markAsRead && messageHandled && messageAlertsDelivered) {
+            await client.sendCommand(`STORE ${id} +FLAGS (\\Seen)`);
+          }
           continue;
         }
 
@@ -566,75 +618,71 @@ async function syncMailbox() {
 
         if (allAttachments.length === 0) {
           console.warn(`[ALERTE] Aucune pièce jointe dans le message #${id}`);
-          await sendSinchAlert({
+          await reportRejection({
             type: 'ATTACHMENT_NOT_CSV',
             reason: 'Le courriel de notification a été reçu sans aucune pièce jointe attachée.',
             sender: from,
-            subject: subject
+            subject
+          }, {
+            status: 'Rejeté (Aucune pièce jointe)'
           });
-          results.details.push({
-            id,
-            from,
-            subject,
-            status: 'Rejeté (Aucune pièce jointe) - Alerte envoyée'
-          });
+          if (config.markAsRead && messageHandled && messageAlertsDelivered) {
+            await client.sendCommand(`STORE ${id} +FLAGS (\\Seen)`);
+          }
           continue;
         }
 
-        if (csvAttachments.length === 0 && nonCsvAttachments.length > 0) {
+        if (nonCsvAttachments.length > 0) {
           const names = nonCsvAttachments.map(a => a.filename).join(', ');
           console.warn(`[ALERTE] Pièce jointe non CSV détectée pour #${id} : ${names}`);
-          await sendSinchAlert({
+          await reportRejection({
             type: 'ATTACHMENT_NOT_CSV',
             reason: `La pièce jointe reçue n'est pas un fichier CSV. Fichier(s) reçu(s) : ${names}`,
             sender: from,
-            subject: subject,
-            attachmentName: names
-          });
-          results.details.push({
-            id,
-            from,
             subject,
-            status: `Rejeté (Format non CSV : ${names}) - Alerte envoyée`
+            attachmentName: names
+          }, {
+            status: `Rejeté (Format non CSV : ${names})`
           });
+        }
+
+        if (csvAttachments.length === 0) {
+          if (config.markAsRead && messageHandled && messageAlertsDelivered) {
+            await client.sendCommand(`STORE ${id} +FLAGS (\\Seen)`);
+          }
           continue;
         }
 
         console.log(`[MAIL] ✓ ${csvAttachments.length} fichier(s) CSV trouvé(s) : ${csvAttachments.map(a => a.filename).join(', ')}`);
 
         // 3. VALIDATION DE LA CONFORMITÉ DES DONNÉES DU CSV & INGESTION
-        let emailHadSuccessfulIngest = false;
-
         for (const att of csvAttachments) {
-          const schemaCheck = validateCSVColumns(att.content, att.filename);
-          if (!schemaCheck.valid) {
-            console.warn(`[ALERTE] Données CSV non conformes dans "${att.filename}" : ${schemaCheck.reason}`);
-            await sendSinchAlert({
-              type: 'CSV_SCHEMA_INVALID',
-              reason: schemaCheck.reason,
-              sender: from,
-              subject: subject,
-              attachmentName: att.filename,
-              details: schemaCheck.header ? `En-tête reçu : "${schemaCheck.header}"` : undefined
-            });
+          const processed = await processCSVAttachment(att, { sender: from, subject });
+          if (!processed.success) {
+            console.warn(`[ALERTE] Données CSV non conformes dans "${att.filename}" : ${processed.reason}`);
+            const alertStatus = processed.alertSent
+              ? 'Alerte envoyée'
+              : `Échec d’envoi de l’alerte : ${processed.alertError}`;
             results.details.push({
               id,
               from,
               subject,
               filename: att.filename,
-              status: `Rejeté (Colonnes CSV non conformes) - Alerte envoyée`
+              status: `Rejeté (CSV non conforme) - ${alertStatus}`
             });
+            if (processed.alertSent) {
+              messageHandled = true;
+            } else {
+              messageAlertsDelivered = false;
+              results.errors.push(`Alerte non envoyée pour "${att.filename}" du message #${id} : ${processed.alertError}`);
+            }
             continue;
           }
 
-          // Le CSV est valide : Ingestion
-          const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-          const safeName = `sinch_mail_${timestamp}_${att.filename}`;
-
-          const ingestResult = ingestCSVContent(att.content, safeName);
+          const ingestResult = processed.ingestResult;
           const totalChanged = (ingestResult.countCreated || 0) + (ingestResult.countUpdated || 0);
 
-          emailHadSuccessfulIngest = true;
+          messageHandled = true;
           results.csvProcessed++;
           results.details.push({
             id,
@@ -645,14 +693,14 @@ async function syncMailbox() {
             countCreated: ingestResult.countCreated || 0,
             countUpdated: ingestResult.countUpdated || 0,
             total: ingestResult.total,
-            archiveFile: safeName,
+            archiveFile: processed.archiveFile,
             status: 'Ingéré avec succès'
           });
           console.log(`[MAIL] ✓ Fichier "${att.filename}" ingéré (${totalChanged} tarifs actualisés, total référentiel: ${ingestResult.total})`);
         }
 
-        // Marquer comme lu UNIQUEMENT si au moins un fichier a été ingéré avec succès
-        if (config.markAsRead && emailHadSuccessfulIngest) {
+        // Ne pas marquer comme lu si une alerte n'a pas été remise : la relève pourra réessayer.
+        if (config.markAsRead && messageHandled && messageAlertsDelivered) {
           await client.sendCommand(`STORE ${id} +FLAGS (\\Seen)`);
         }
       } catch (msgErr) {
@@ -738,6 +786,7 @@ module.exports = {
   extractAttachmentsRecursive,
   validateSinchEmailFormat,
   validateCSVColumns,
+  processCSVAttachment,
   parseMIMEHeaders,
   decodeQuotedPrintable,
   decodeRFC2047,

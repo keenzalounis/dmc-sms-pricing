@@ -47,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const chartTitle = document.getElementById('chart-title');
   const chartSubtitle = document.getElementById('chart-subtitle');
   const historyTbody = document.getElementById('history-tbody');
+  const operatorPriceChart = document.getElementById('operator-price-chart');
+  const chartPointsCount = document.getElementById('chart-points-count');
+  const chartLegendInfo = document.getElementById('chart-legend-info');
 
   // --- Initialisation ---
   loadKPIs();
@@ -348,8 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <td style="white-space: nowrap;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 ${generateSparklineSVG(r.history, r.currentPrice, r.priceChange, r.id)}
-                <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Voir la courbe détaillée par fichier">
-                  Détails
+                <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Ouvrir le graphique Python et l'historique de ce tarif">
+                  Graphique Python
                 </button>
               </div>
             </td>
@@ -390,16 +393,19 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
 
-      // 2. Ouvrir le modal d'abord pour que le conteneur soit affiché dans le DOM
-      openModal(modalChart);
+      const history = data.history || [];
+      chartPointsCount.textContent = `${history.length} point${history.length === 1 ? '' : 's'}`;
+      chartPointsCount.className = history.length > 1 ? 'badge badge-success' : 'badge badge-neutral';
+      chartLegendInfo.textContent = 'Génération du graphique Python...';
+      operatorPriceChart.onerror = () => {
+        chartLegendInfo.textContent = 'Graphique indisponible : vérifiez Python 3 et les dépendances de requirements.txt.';
+      };
+      operatorPriceChart.onload = () => {
+        chartLegendInfo.textContent = `Évolution du tarif sur ${history.length} version${history.length === 1 ? '' : 's'} historisée${history.length === 1 ? '' : 's'}.`;
+      };
 
-      // 3. Dessiner la courbe Canvas dès que le modal est visible
-      setTimeout(() => {
-        const canvas = document.getElementById('operator-price-canvas');
-        if (canvas) {
-          drawOperatorHistoryChart(canvas, data.history, data.currentPrice);
-        }
-      }, 60);
+      openModal(modalChart);
+      operatorPriceChart.src = apiUrl(`/api/history-chart?id=${encodeURIComponent(recordId)}`);
 
     } catch (err) {
       alert(`Erreur historique : ${err.message}`);
@@ -600,41 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
         legendInfoEl.innerHTML = `Courbe d'évolution tracée sur <strong>${points.length} fichiers Sinch successifs</strong>. Chaque point correspond à une date d'effet et à un fichier précis.`;
       }
     }
-  }
-
-  // Réinitialisation au catalogue de base (remise à 0 des hausses)
-  const btnResetBase = document.getElementById('btn-reset-base');
-  if (btnResetBase) {
-    btnResetBase.addEventListener('click', async () => {
-      const confirmed = confirm(
-        "Êtes-vous sûr de vouloir réinitialiser la base au catalogue officiel Sinch ?\n\n" +
-        "- Toutes les hausses et baisses récentes seront remises à 0.\n" +
-        "- Les 930 tarifs officiels du catalogue de base seront restaurés.\n" +
-        "- Le fichier de base officiel est protégé et ne sera pas altéré."
-      );
-      if (!confirmed) return;
-
-      btnResetBase.disabled = true;
-      btnResetBase.textContent = "Réinitialisation en cours...";
-
-      try {
-        const res = await fetch(apiUrl('/api/reset-base'), { method: 'POST' });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          loadKPIs();
-          loadPrices();
-          loadArchives();
-          alert("✓ Base réinitialisée avec succès ! Les hausses et baisses ont été remises à 0.");
-        } else {
-          alert("Erreur lors de la réinitialisation : " + (data.message || 'Échec'));
-        }
-      } catch (err) {
-        alert("Erreur réseau : " + err.message);
-      } finally {
-        btnResetBase.disabled = false;
-        btnResetBase.textContent = "↺ Réinitialiser au catalogue de base (Remise à 0)";
-      }
-    });
   }
 
   // Suppression d'une archive
