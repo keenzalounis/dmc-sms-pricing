@@ -345,10 +345,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="mono text-muted">${r.previousPrice ? r.previousPrice.toFixed(5) + ' €' : '-'}</td>
             <td>${badgeHtml}</td>
             <td>${r.validFrom || '-'}</td>
-            <td>
-              <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Voir la courbe d'évolution et l'historique">
-                📈 Évolution
-              </button>
+            <td style="white-space: nowrap;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                ${generateSparklineSVG(r.history, r.currentPrice, r.priceChange, r.id)}
+                <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Voir la courbe détaillée par fichier">
+                  Détails
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -681,5 +684,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return `<span class="badge-code" title="${escapeHTML(fullText)}" style="max-width: 140px; display: inline-block; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">${escapeHTML(fullText)}</span>`;
+  }
+
+  /**
+   * Génère un mini-graphique sparkline vectoriel (SVG) directement dans la ligne du tableau.
+   * Affiche la tendance visuelle (hausse en rouge, baisse en vert, stable en gris).
+   */
+  function generateSparklineSVG(history, currentPrice, priceChange, recordId) {
+    const rawPoints = (history && Array.isArray(history) && history.length > 0)
+      ? history.map(h => parseFloat(h.price) || parseFloat(currentPrice) || 0)
+      : [parseFloat(currentPrice) || 0];
+
+    const displayPoints = rawPoints.length === 1 ? [rawPoints[0], rawPoints[0]] : rawPoints;
+
+    const w = 90;
+    const h = 26;
+    const padX = 4;
+    const padY = 5;
+    const plotW = w - padX * 2;
+    const plotH = h - padY * 2;
+
+    const min = Math.min(...displayPoints);
+    const max = Math.max(...displayPoints);
+    const range = max === min ? (max * 0.1 || 1) : (max - min);
+
+    const coords = displayPoints.map((val, idx) => {
+      const x = padX + (plotW / (displayPoints.length - 1)) * idx;
+      const y = padY + plotH - ((val - min) / range) * plotH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+
+    const isUp = priceChange > 0;
+    const isDown = priceChange < 0;
+    const color = isUp ? '#DC2626' : (isDown ? '#059669' : '#94A3B8');
+    const pointsStr = coords.join(' ');
+    const lastCoord = coords[coords.length - 1].split(',');
+
+    const tip = `${rawPoints.length} point(s) : ${rawPoints.map(p => p.toFixed(4) + '€').join(' → ')} (Cliquer pour voir la courbe détaillée)`;
+
+    return `
+      <svg width="${w}" height="${h}" class="sparkline" onclick="showHistory('${recordId}')" title="${escapeHTML(tip)}" style="vertical-align: middle; cursor: pointer; background: #FAFBFD; border-radius: 4px; border: 1px solid #EEF2F6; padding: 1px;">
+        <polyline fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${pointsStr}" />
+        <circle cx="${lastCoord[0]}" cy="${lastCoord[1]}" r="3" fill="${color}" />
+      </svg>
+    `;
   }
 });
