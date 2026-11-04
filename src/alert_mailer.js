@@ -159,6 +159,7 @@ async function sendSMTPMessage({ host = 'smtp.gmail.com', port = 465, user, pass
  * @param {string} options.subject
  * @param {string} [options.attachmentName]
  * @param {string} [options.details]
+ * @param {'manual-upload'} [options.origin]
  */
 async function sendSinchAlert(options) {
   let config = null;
@@ -186,11 +187,24 @@ async function sendSinchAlert(options) {
   const title = typeLabels[options.type] || 'Notification Sinch rejetée';
   const emailSubject = `🚨 [ALERTE DMC] ${title}`;
   const now = new Date().toLocaleString('fr-FR');
+  const isManualUpload = options.origin === 'manual-upload';
+  const sourceDescription = isManualUpload
+    ? 'l’interface d’import manuel DMC'
+    : 'la relève automatique de la boîte mail';
+  const recommendedActions = isManualUpload
+    ? [
+        `- Vérifiez le fichier ${options.attachmentName || 'CSV'} et corrigez les colonnes ou tarifs signalés.`,
+        `- Relancez l'import depuis l'interface DMC après correction.`
+      ]
+    : [
+        `- Vérifiez le courriel reçu dans la boîte dmc.tarifs.sinch@gmail.com.`,
+        `- Contactez l'Account Manager Sinch si les colonnes ou le format ont été modifiés.`
+      ];
 
   const textBody = [
     `ALERTE DMC - TARIFICATION SMS SINCH`,
     `=====================================`,
-    `Une notification reçue par la boîte de relève automatique a été rejetée.`,
+    `Un fichier ou une notification reçu via ${sourceDescription} a été rejeté.`,
     ``,
     `Motif du rejet : ${options.reason}`,
     `Type d'anomalie : ${title}`,
@@ -201,8 +215,7 @@ async function sendSinchAlert(options) {
     options.details ? `Détails techniques : ${options.details}` : '',
     ``,
     `Action requise :`,
-    `- Vérifiez le courriel reçu dans la boîte dmc.tarifs.sinch@gmail.com.`,
-    `- Contactez l'Account Manager Sinch si les colonnes ou le format ont été modifiés.`,
+    ...recommendedActions,
     `=====================================`
   ].filter(Boolean).join('\n');
 
@@ -257,8 +270,7 @@ async function sendSinchAlert(options) {
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px; border-radius: 6px; font-size: 12px; color: #334155;">
           <strong>Action recommandée :</strong>
           <ul style="margin: 6px 0 0; padding-left: 18px;">
-            <li>Consulter le courriel original sur la boîte <code>dmc.tarifs.sinch@gmail.com</code>.</li>
-            <li>Si le format a changé côté Sinch, contactez votre Account Manager Sinch ou adaptez le schéma d'ingestion.</li>
+            ${recommendedActions.map(action => `<li>${escapeHtml(action.replace(/^- /, ''))}</li>`).join('')}
             <li>La base active n'a pas été modifiée pour préserver l'intégrité de vos tarifs.</li>
           </ul>
         </div>

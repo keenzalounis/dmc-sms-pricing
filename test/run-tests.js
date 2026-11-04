@@ -19,9 +19,11 @@ const {
   listDatabaseArchives,
   getDatabaseArchive,
   deleteDatabaseArchive,
+  restoreDatabaseArchive,
   resetToBaseCatalog,
   ingestCSVContent
 } = require('../src/ingest');
+const { ingestManualCSV } = require('../src/manual_upload');
 
 const { getBillingData, toCSV } = require('../src/export');
 const {
@@ -189,13 +191,76 @@ async function runTests() {
     assert.strictEqual(archive.importedCsv, csv, 'L’archive doit conserver le CSV importé');
   });
 
-  await it('Devrait supprimer une version archivée et la retirer du stockage', () => {
-    const archives = listDatabaseArchives();
-    assert(archives.length > 0, 'Il doit y avoir au moins une archive créée par le test');
-    const target = archives[0].filename;
-    const deleted = deleteDatabaseArchive(target);
+  await it('Devrait restaurer une archive explicitement et sauvegarder le référentiel actif', () => {
+    const target = listDatabaseArchives().find(archive => archive.source === 'base_tarifs_test.csv');
+    assert(target, 'L’archive créée par le test doit exister');
+
+    const restored = restoreDatabaseArchive(target.filename);
+    assert(restored, 'La restauration doit retourner ses informations');
+    assert.strictEqual(restored.restoredFrom, target.filename);
+    assert(!loadDatabase().records['archiveland__archive_mobile__777_02'], 'La restauration doit remettre le référentiel antérieur');
+    assert(getDatabaseArchive(target.filename), 'L’archive restaurée doit être conservée');
+
+    const safetyArchive = listDatabaseArchives().find(archive =>
+      archive.source === `avant_restauration_${target.filename}`
+    );
+    assert(safetyArchive, 'Le référentiel actif remplacé doit être sauvegardé avant restauration');
+    const backup = JSON.parse(getDatabaseArchive(safetyArchive.filename));
+    assert(backup.database.records['archiveland__archive_mobile__777_02']);
+  });
+
+  await it('Devrait supprimer une archive sans modifier le référentiel actif', () => {
+    const target = listDatabaseArchives().find(archive => archive.source === 'base_tarifs_test.csv');
+    assert(target, 'L’archive à supprimer doit exister');
+    const activeBefore = fs.readFileSync(dbPath, 'utf-8');
+    const deleted = deleteDatabaseArchive(target.filename);
     assert.strictEqual(deleted, true, 'deleteDatabaseArchive doit retourner true');
-    assert.strictEqual(getDatabaseArchive(target), null, 'getDatabaseArchive doit renvoyer null après suppression');
+    assert.strictEqual(getDatabaseArchive(target.filename), null, 'getDatabaseArchive doit renvoyer null après suppression');
+    assert.strictEqual(fs.readFileSync(dbPath, 'utf-8'), activeBefore, 'La suppression d’une archive ne doit pas restaurer ou réinitialiser la base active');
+  });
+
+  await it('Devrait envoyer une alerte simulée pour un CSV invalide importé manuellement', async () => {
+    const before = fs.readFileSync(dbPath, 'utf-8');
+    let alertOptions;
+    const result = await ingestManualCSV(
+      'Country,Operator,Old Price\nFrance,SFR,0.025',
+      'test_manuel_invalide.csv',
+      async options => {
+        alertOptions = options;
+        return { success: true };
+      }
+    );
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.statusCode, 400);
+    assert.strictEqual(result.alertSent, true);
+    assert.strictEqual(alertOptions.origin, 'manual-upload');
+    assert.strictEqual(alertOptions.attachmentName, 'test_manuel_invalide.csv');
+    assert.strictEqual(fs.readFileSync(dbPath, 'utf-8'), before, 'Un CSV invalide ne doit pas modifier la base');
+  });
+
+  await it('Devrait envoyer une alerte simulée pour un fichier CSV vide importé manuellement', async () => {
+    let alertSent = false;
+    const result = await ingestManualCSV('', 'test_vide.csv', async options => {
+      alertSent = options.origin === 'manual-upload';
+      return { success: true };
+    });
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.alertSent, true);
+    assert.strictEqual(alertSent, true);
+  });
+
+  await it('Devrait signaler si l’alerte d’un import manuel ne peut pas être envoyée', async () => {
+    const result = await ingestManualCSV(
+      'Country,Operateur,Prix\nFrance,SFR,0.025',
+      'test_alerte_indisponible.csv',
+      async () => ({ success: false, error: 'SMTP indisponible' })
+    );
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.alertSent, false);
+    assert.strictEqual(result.alertError, 'SMTP indisponible');
   });
 
   // 3. Test Export Facturation
@@ -443,6 +508,17 @@ async function runTests() {
   await it('Devrait reconnaître le nouvel échantillon de notification valide sans modifier la base', () => {
     const csv = fs.readFileSync(path.join(__dirname, '..', 'data', 'test_samples', '05_test_notification_valide.csv'), 'utf-8');
     assert.strictEqual(validateCSVColumns(csv, '05_test_notification_valide.csv').valid, true);
+  });
+
+  await it('Devrait compter séparément les hausses et baisses du CSV mixte de test', () => {
+    const csvPath = path.join(__dirname, '..', 'data', 'test_samples', '01_notification_hausses_baisses_valide.csv');
+    const rows = parseCSV(fs.readFileSync(csvPath, 'utf-8'));
+    const increases = rows.filter(row => parsePrice(row['New Price']) > parsePrice(row['Old Price']));
+    const decreases = rows.filter(row => parsePrice(row['New Price']) < parsePrice(row['Old Price']));
+
+    assert.strictEqual(rows.length, 15, 'Le CSV contient 15 lignes tarifaires, sans compter l’en-tête');
+    assert.strictEqual(increases.length, 10);
+    assert.strictEqual(decreases.length, 5);
   });
 
   await it('Devrait calculer un délai positif et inférieur à 24h pour la planification de 02:00', () => {

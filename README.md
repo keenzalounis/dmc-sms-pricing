@@ -41,7 +41,9 @@ Sur Linux / VM Ubuntu, les commandes npm s'exécutent normalement avec `npm`.
 
 ## Import et archives
 
-Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur vérifie les colonnes obligatoires et chaque ligne tarifaire avant toute modification. Si le format ou une ligne est invalide, le fichier entier est refusé pour éviter un import partiel. Un import valide archive l'ancien référentiel et conserve le CSV importé dans l'archive JSON. Les archives sont consultables et téléchargeables depuis **Historique des versions**.
+Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur vérifie les colonnes obligatoires et chaque ligne tarifaire avant toute modification. Si le format ou une ligne est invalide, le fichier entier est refusé pour éviter un import partiel ; une alerte est envoyée au destinataire configuré si SMTP est disponible, et le résultat de l'envoi est affiché. Un import valide archive l'ancien référentiel et conserve le CSV importé dans l'archive JSON.
+
+Dans **Historique des versions**, le nombre de lignes tarifaires du CSV est distinct du nombre de destinations sauvegardées avant import. Une restauration est une action explicite qui sauvegarde d'abord le référentiel actif dans une nouvelle archive. Supprimer une archive ne modifie pas les tarifs actifs.
 
 Les archives et la base active sont enregistrées sous `data/`. Il faut donc inclure ce dossier dans les sauvegardes de la VM et éviter de le remplacer lors d'un déploiement.
 

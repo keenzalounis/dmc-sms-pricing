@@ -170,7 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${archive.totalDestinations}</td>
           <td style="white-space: nowrap;">
             <a class="btn btn-ghost btn-sm" href="${apiUrl('/api/archives/' + encodeURIComponent(archive.filename))}" download title="Télécharger cette archive">Télécharger</a>
-            <button class="btn btn-ghost btn-sm" style="color: #DC2626;" onclick="deleteArchive('${escapeHTML(archive.filename)}')" title="Supprimer cette archive">🗑️ Supprimer</button>
+            <button class="btn btn-ghost btn-sm" onclick="restoreArchive('${escapeHTML(archive.filename)}')" title="Restaurer ce référentiel, en sauvegardant l'état actuel">Restaurer</button>
+            <button class="btn btn-ghost btn-sm" style="color: #DC2626;" onclick="deleteArchive('${escapeHTML(archive.filename)}')" title="Supprimer uniquement cette archive">🗑️ Supprimer</button>
           </td>
         </tr>
       `).join('');
@@ -249,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   btnSendUpload.addEventListener('click', async () => {
-    if (!selectedFileContent) return;
+    if (selectedFileContent === null) return;
     btnSendUpload.disabled = true;
     btnSendUpload.textContent = 'Ingestion en cours...';
 
@@ -278,7 +279,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { closeModal(modalUpload); }, 1800);
       } else {
         const details = Array.isArray(data.details) ? data.details.join(' ') : '';
-        showUploadStatus(`Erreur : ${data.message}${details ? ` ${details}` : ''}`, 'danger');
+        const alertStatus = data.alertSent
+          ? ' Alerte e-mail envoyée au collaborateur.'
+          : data.alertError
+            ? ` Alerte e-mail non envoyée : ${data.alertError}`
+            : '';
+        showUploadStatus(`Erreur : ${data.message}${details ? ` ${details}` : ''}${alertStatus}`, 'danger');
         btnSendUpload.disabled = false;
         btnSendUpload.textContent = "Lancer l'ingestion";
       }
@@ -619,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Suppression d'une archive
   window.deleteArchive = async function(filename) {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement cette version archivée ?\n\nFichier : ${filename}`)) {
+    if (!confirm(`Supprimer définitivement cette archive ? Les tarifs actuellement actifs ne seront pas modifiés.\n\nFichier : ${filename}`)) {
       return;
     }
     try {
@@ -628,14 +634,35 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        loadKPIs();
-        loadPrices();
         loadArchives();
       } else {
         alert('Erreur : ' + (data.message || 'Impossible de supprimer cette archive.'));
       }
     } catch (err) {
       alert('Erreur réseau lors de la suppression : ' + err.message);
+    }
+  };
+
+  window.restoreArchive = async function(filename) {
+    if (!confirm(`Restaurer ce référentiel ?\n\nLes tarifs actifs seront remplacés par ceux de l'archive. L'état actuel sera sauvegardé dans une nouvelle archive.\n\nFichier : ${filename}`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl('/api/archives/' + encodeURIComponent(filename) + '/restore'), {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        loadKPIs();
+        loadPrices(searchInput.value);
+        loadArchives();
+        alert(`Référentiel restauré : ${data.details.totalDestinations} destinations. L'état précédent a été archivé.`);
+      } else {
+        alert('Erreur : ' + (data.message || 'Impossible de restaurer cette archive.'));
+      }
+    } catch (err) {
+      alert('Erreur réseau lors de la restauration : ' + err.message);
     }
   };
 

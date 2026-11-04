@@ -12,12 +12,13 @@ const { execFile } = require('child_process');
 
 const {
   loadDatabase,
-  ingestCSVContent,
   listDatabaseArchives,
   getDatabaseArchive,
   deleteDatabaseArchive,
+  restoreDatabaseArchive,
   resetToBaseCatalog
 } = require('./ingest');
+const { ingestManualCSV } = require('./manual_upload');
 const { getBillingData, toCSV } = require('./export');
 const {
   loadMailConfig,
@@ -277,6 +278,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Restaurer une archive explicitement, en conservant une sauvegarde de la base actuelle.
+  if (pathname.startsWith('/api/archives/') && pathname.endsWith('/restore') && method === 'POST') {
+    try {
+      const filename = decodeURIComponent(pathname.slice('/api/archives/'.length, -'/restore'.length));
+      const result = restoreDatabaseArchive(filename);
+      if (!result) {
+        sendError(res, 404, 'Archive introuvable');
+        return;
+      }
+      sendJSON(res, 200, { success: true, details: result });
+    } catch (err) {
+      sendError(res, 400, `Impossible de restaurer cette archive : ${err.message}`);
+    }
+    return;
+  }
+
   // 7. GET /api/charts/list : Liste des graphiques Python disponibles
   if (pathname === '/api/charts/list' && method === 'GET') {
     if (!fs.existsSync(CHARTS_DIR)) {
@@ -324,19 +341,26 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        if (!body || body.trim().length === 0) {
-          sendError(res, 400, 'Corps de requête vide');
-          return;
-        }
-
         const uploadedName = req.headers['x-file-name']
           ? path.basename(decodeURIComponent(req.headers['x-file-name']))
           : 'upload_web_interface.csv';
-        const result = ingestCSVContent(body, uploadedName);
-        sendJSON(res, 200, {
-          success: true,
-          message: 'Fichier ingéré avec succès',
-          details: result
+        ingestManualCSV(body, uploadedName).then(result => {
+          if (!result.success) {
+            sendJSON(res, result.statusCode, result);
+            return;
+          }
+          sendJSON(res, 200, {
+            success: true,
+            message: 'Fichier ingéré avec succès',
+            details: result.details
+          });
+        }).catch(err => {
+          sendError(
+            res,
+            err.statusCode || 500,
+            `Erreur lors de l'ingestion : ${err.message}`,
+            err.details
+          );
         });
       } catch (err) {
         sendError(

@@ -349,27 +349,37 @@ function deleteDatabaseArchive(filename) {
   const archivePath = path.join(ARCHIVES_DIR, filename);
   if (!fs.existsSync(archivePath)) return false;
 
-  // 1. Restaurer l'état antérieur de la base sauvegardé dans cette archive
-  try {
-    const raw = fs.readFileSync(archivePath, 'utf-8');
-    const archiveData = JSON.parse(raw);
-    if (archiveData && archiveData.database && archiveData.database.records && Object.keys(archiveData.database.records).length > 0) {
-      saveDatabase(archiveData.database);
-    }
-  } catch (e) {
-    console.warn(`[WARN] Impossible de restaurer l'état antérieur avant suppression : ${e.message}`);
-  }
-
-  // 2. Supprimer le fichier d'archive
   fs.unlinkSync(archivePath);
+  return true;
+}
 
-  // 3. Si toutes les archives ont été supprimées, réaligner automatiquement sur le catalogue de base propre (hausses à 0)
-  const remaining = listDatabaseArchives();
-  if (remaining.length === 0) {
-    resetToBaseCatalog();
+function restoreDatabaseArchive(filename) {
+  if (path.basename(filename) !== filename || !filename.endsWith('.json')) {
+    throw new Error('Nom d’archive invalide');
   }
 
-  return true;
+  const archivePath = path.join(ARCHIVES_DIR, filename);
+  if (!fs.existsSync(archivePath)) return null;
+
+  const archiveData = JSON.parse(fs.readFileSync(archivePath, 'utf-8'));
+  if (
+    !archiveData.database ||
+    !archiveData.database.meta ||
+    !archiveData.database.records ||
+    typeof archiveData.database.records !== 'object' ||
+    Array.isArray(archiveData.database.records)
+  ) {
+    throw new Error('Cette archive ne contient pas de référentiel restaurable.');
+  }
+
+  const currentDatabase = loadDatabase();
+  archiveDatabaseSnapshot(currentDatabase, `avant_restauration_${filename}`, null);
+  saveDatabase(archiveData.database);
+
+  return {
+    totalDestinations: Object.keys(archiveData.database.records).length,
+    restoredFrom: filename
+  };
 }
 
 /**
@@ -711,6 +721,7 @@ module.exports = {
   listDatabaseArchives,
   getDatabaseArchive,
   deleteDatabaseArchive,
+  restoreDatabaseArchive,
   resetToBaseCatalog,
   ingestRows,
   ingestFile,

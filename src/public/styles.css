@@ -197,6 +197,10 @@ body {
   color: var(--danger);
 }
 
+.kpi-value.text-success {
+  color: var(--success);
+}
+
 .kpi-value.text-small {
   font-size: 18px;
   font-weight: 600;
