@@ -5,9 +5,9 @@ echo "======================================================"
 echo "🔄 Redémarrage du serveur DMC SMS Pricing"
 echo "======================================================"
 
-# 1. Mise à jour des fichiers depuis Git
+# 1. Mise à jour des fichiers depuis Git (alignement strict sur origin/main)
 echo "1. Récupération des dernières mises à jour..."
-git pull || true
+git fetch origin && git reset --hard origin/main
 
 # 2. Arrêt des anciens processus Node.js sur le port 3002
 echo "2. Arrêt des anciens processus..."
