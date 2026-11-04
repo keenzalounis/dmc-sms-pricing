@@ -11,6 +11,8 @@ Les fichiers `01` et `02` contiennent des données valides à importer dans l'ap
 | `07_test_tarifs_invalides.csv` | Nouveau tarif non numérique ou négatif | Rejet ; alerte si reçu par e-mail |
 | `08_test_colonnes_incorrectes.csv` | En-têtes incompatibles avec le format Sinch | Rejet ; alerte si reçu par e-mail |
 
+Le fichier `01_notification_hausses_baisses_valide.csv` contient 15 lignes tarifaires (16 lignes en comptant l'en-tête) : 10 hausses et 5 baisses.
+
 ## Exécution locale
 
 1. Lancez `npm test`. Les tests valident aussi le chemin d'alerte CSV avec un expéditeur simulé : aucun e-mail réel n'est envoyé.

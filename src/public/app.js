@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const kpiTotal = document.getElementById('kpi-total');
   const kpiAvg = document.getElementById('kpi-avg');
   const kpiIncreases = document.getElementById('kpi-increases');
+  const kpiDecreases = document.getElementById('kpi-decreases');
   const kpiDate = document.getElementById('kpi-date');
   const searchInput = document.getElementById('search-input');
   const resultsCount = document.getElementById('results-count');
@@ -152,19 +153,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadArchives() {
     const archivesTbody = document.getElementById('archives-tbody');
-    archivesTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chargement...</td></tr>';
+    archivesTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chargement...</td></tr>';
     try {
       const res = await fetch(apiUrl('/api/archives'));
       if (!res.ok) throw new Error('Impossible de charger les archives');
       const { archives } = await res.json();
       if (!archives.length) {
-        archivesTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Aucune version archivée pour le moment.</td></tr>';
+        archivesTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Aucune version archivée pour le moment.</td></tr>';
         return;
       }
       archivesTbody.innerHTML = archives.map(archive => `
         <tr>
           <td>${new Date(archive.archivedAt).toLocaleString('fr-FR')}</td>
           <td>${escapeHTML(archive.source)}</td>
+          <td>${Number.isInteger(archive.importedRows) ? archive.importedRows : '-'}</td>
           <td>${archive.totalDestinations}</td>
           <td style="white-space: nowrap;">
             <a class="btn btn-ghost btn-sm" href="${apiUrl('/api/archives/' + encodeURIComponent(archive.filename))}" download title="Télécharger cette archive">Télécharger</a>
@@ -173,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>
       `).join('');
     } catch (err) {
-      archivesTbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${escapeHTML(err.message)}</td></tr>`;
+      archivesTbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${escapeHTML(err.message)}</td></tr>`;
     }
   }
 
@@ -314,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       kpiTotal.textContent = data.totalDestinations || 0;
       kpiAvg.textContent = `${(data.averagePriceEUR || 0).toFixed(4)} €`;
       kpiIncreases.textContent = data.totalIncreases || 0;
+      kpiDecreases.textContent = data.totalDecreases || 0;
       kpiDate.textContent = data.lastUpdated ? new Date(data.lastUpdated).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Aucune';
     } catch (err) {
       console.error('Erreur chargement stats:', err);

@@ -183,6 +183,7 @@ async function runTests() {
       !archivesBefore.has(archive.filename) && archive.source === 'base_tarifs_test.csv'
     );
     assert(newArchive, 'Le référentiel précédent doit être archivé');
+    assert.strictEqual(newArchive.importedRows, 1, 'L’archive doit compter les lignes tarifaires du CSV séparément des destinations sauvegardées');
     const archive = JSON.parse(getDatabaseArchive(newArchive.filename));
     assert(archive.database.records, 'L’archive doit contenir l’ancienne base');
     assert.strictEqual(archive.importedCsv, csv, 'L’archive doit conserver le CSV importé');

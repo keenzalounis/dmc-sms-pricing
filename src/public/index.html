@@ -49,9 +49,14 @@
         <span class="kpi-hint">Coût brut d'achat Sinch</span>
       </div>
       <div class="kpi-card">
-        <span class="kpi-label">Dernières Hausses</span>
+        <span class="kpi-label">Tarifs en hausse</span>
         <span class="kpi-value text-danger" id="kpi-increases">-</span>
-        <span class="kpi-hint">Tarifs ayant augmenté récemment</span>
+        <span class="kpi-hint">Dernière variation connue positive</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Tarifs en baisse</span>
+        <span class="kpi-value text-success" id="kpi-decreases">-</span>
+        <span class="kpi-hint">Dernière variation connue négative</span>
       </div>
       <div class="kpi-card">
         <span class="kpi-label">Dernière mise à jour</span>
@@ -234,8 +239,8 @@
         <p class="text-muted">Chaque import réussi archive ici le référentiel qui était en vigueur avant la mise à jour.</p>
         <div class="table-responsive">
           <table class="data-table">
-            <thead><tr><th>Date d'archivage</th><th>Fichier importé</th><th>Destinations</th><th>Archive</th></tr></thead>
-            <tbody id="archives-tbody"><tr><td colspan="4" class="text-center text-muted">Chargement...</td></tr></tbody>
+            <thead><tr><th>Date d'archivage</th><th>Fichier importé</th><th>Lignes tarifaires CSV</th><th>Destinations archivées avant import</th><th>Archive</th></tr></thead>
+            <tbody id="archives-tbody"><tr><td colspan="5" class="text-center text-muted">Chargement...</td></tr></tbody>
           </table>
         </div>
       </div>

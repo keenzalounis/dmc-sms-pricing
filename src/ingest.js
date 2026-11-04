@@ -324,7 +324,10 @@ function listDatabaseArchives() {
         filename,
         archivedAt: archive.archivedAt,
         source: archive.source,
-        totalDestinations: Object.keys(archive.database.records || {}).length
+        totalDestinations: Object.keys(archive.database.records || {}).length,
+        importedRows: typeof archive.importedCsv === 'string'
+          ? parseCSV(archive.importedCsv).length
+          : null
       };
     })
     .sort((a, b) => b.archivedAt.localeCompare(a.archivedAt));
