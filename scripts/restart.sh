@@ -9,14 +9,20 @@ echo "======================================================"
 echo "1. Récupération des dernières mises à jour..."
 git fetch origin && git reset --hard origin/main
 
-# 2. Arrêt des anciens processus Node.js sur le port 3002
-echo "2. Arrêt des anciens processus..."
+# 2. Vérification et création automatique du fichier de configuration mail si manquant
+if [ ! -f data/mail_config.json ] && [ -f data/mail_config.example.json ]; then
+    echo "2. Initialisation de data/mail_config.json..."
+    cp data/mail_config.example.json data/mail_config.json
+fi
+
+# 3. Arrêt des anciens processus Node.js sur le port 3002
+echo "3. Arrêt des anciens processus..."
 killall -9 node 2>/dev/null || true
 fuser -k 3002/tcp 2>/dev/null || true
 sleep 1
 
-# 3. Démarrage du nouveau serveur avec la nouvelle version
-echo "3. Démarrage de la nouvelle version..."
+# 4. Démarrage du nouveau serveur avec la nouvelle version
+echo "4. Démarrage de la nouvelle version..."
 export PORT=3002
 export HOST=0.0.0.0
 nohup node src/server.js > /tmp/dmc.log 2>&1 &
