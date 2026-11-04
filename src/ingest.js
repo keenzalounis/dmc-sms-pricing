@@ -392,6 +392,60 @@ function buildRecordKey(country, operator, mcc, mnc) {
 }
 
 /**
+ * Recherche intelligente d'un opérateur existant pour éviter les doublons dus
+ * aux variations de codes MNC (ex: "29201" vs "01") ou de noms (ex: "Orange France" vs "Orange").
+ */
+function resolveTargetRecordKey(db, country, operator, mcc, mnc) {
+  const exactKey = buildRecordKey(country, operator, mcc, mnc);
+  if (db.records && db.records[exactKey]) {
+    return exactKey;
+  }
+
+  if (!db.records) return exactKey;
+
+  const normCountry = (country || '').toLowerCase().trim();
+  const cleanOp = (operator || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  const cleanMCC = String(mcc || '').trim();
+  const cleanMNC = String(mnc || '').trim();
+
+  const candidates = Object.values(db.records).filter(r =>
+    (r.country || '').toLowerCase().trim() === normCountry
+  );
+
+  // Étape 1 : Même pays + MCC correspondant
+  for (const cand of candidates) {
+    const candMCC = String(cand.mcc || '').trim();
+    const mccMatches = !cleanMCC || !candMCC || candMCC.includes(cleanMCC) || cleanMCC.includes(candMCC);
+
+    if (mccMatches) {
+      const candMncList = String(cand.mnc || '').split(/[,;\s]+/).map(m => m.trim());
+      const mncMatched = cleanMNC && candMncList.some(m =>
+        m === cleanMNC ||
+        (cleanMCC && m === cleanMCC + cleanMNC) ||
+        (cleanMCC && m.endsWith(cleanMNC))
+      );
+
+      const candOp = (cand.operator || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+      const opMatched = cleanOp && candOp && (candOp.includes(cleanOp) || cleanOp.includes(candOp));
+
+      if (mncMatched || opMatched) {
+        return cand.id;
+      }
+    }
+  }
+
+  // Étape 2 : Nom d'opérateur approchant dans le même pays
+  for (const cand of candidates) {
+    const candOp = (cand.operator || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    if (candOp && cleanOp && (candOp.includes(cleanOp) || cleanOp.includes(candOp))) {
+      return cand.id;
+    }
+  }
+
+  return exactKey;
+}
+
+/**
  * Ingestion d'un flux de lignes (Base ou Notification)
  */
 function ingestRows(rows, sourceName = 'inconnu', sourceContent = null) {
@@ -428,7 +482,7 @@ function ingestRows(rows, sourceName = 'inconnu', sourceContent = null) {
     const serviceType = row['Service type'] || row['Service Type'] || row['service_type'] || '';
     const originator = row['Originator'] || row['originator'] || '';
 
-    const key = buildRecordKey(country, operator, mcc, mnc);
+    const key = resolveTargetRecordKey(db, country, operator, mcc, mnc);
 
     let newPrice, oldPrice, validFrom;
 
@@ -580,6 +634,7 @@ module.exports = {
   validateCSVRows,
   normalizeDate,
   buildRecordKey,
+  resolveTargetRecordKey,
   loadDatabase,
   saveDatabase,
   listDatabaseArchives,
