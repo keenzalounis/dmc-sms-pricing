@@ -23,16 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalExport = document.getElementById('modal-export');
   const modalUpload = document.getElementById('modal-upload');
   const modalChart = document.getElementById('modal-chart');
-  const modalPythonCharts = document.getElementById('modal-python-charts');
   const modalArchives = document.getElementById('modal-archives');
   const btnOpenExport = document.getElementById('btn-open-export');
   const btnOpenUpdate = document.getElementById('btn-open-update');
   const btnOpenArchives = document.getElementById('btn-open-archives');
-  const btnOpenCharts = document.getElementById('btn-open-charts');
   const btnTriggerDownload = document.getElementById('btn-trigger-download');
-  const btnTriggerPyGenerate = document.getElementById('btn-trigger-py-generate');
-  const pyChartsGallery = document.getElementById('py-charts-gallery');
-  const pyGenerateStatus = document.getElementById('py-generate-status');
   const exportMarginInput = document.getElementById('export-margin');
   const exportCountryInput = document.getElementById('export-country');
 
@@ -151,67 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
     openModal(modalArchives);
     loadArchives();
   });
-  btnOpenCharts.addEventListener('click', () => {
-    openModal(modalPythonCharts);
-    loadPythonCharts();
-  });
-  btnTriggerPyGenerate.addEventListener('click', async () => {
-    btnTriggerPyGenerate.disabled = true;
-    btnTriggerPyGenerate.textContent = 'Génération en cours…';
-    pyGenerateStatus.style.display = 'none';
-
-    try {
-      const res = await fetch(apiUrl('/api/charts/generate'), { method: 'POST' });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        pyGenerateStatus.className = 'alert alert-success';
-        pyGenerateStatus.textContent = 'Graphiques Python régénérés avec succès !';
-        pyGenerateStatus.style.display = 'block';
-        loadPythonCharts();
-      } else {
-        pyGenerateStatus.className = 'alert alert-danger';
-        pyGenerateStatus.textContent = [data.message, data.details].filter(Boolean).join(' ');
-        pyGenerateStatus.style.display = 'block';
-      }
-    } catch (err) {
-      pyGenerateStatus.className = 'alert alert-danger';
-      pyGenerateStatus.textContent = `Erreur réseau : ${err.message}`;
-      pyGenerateStatus.style.display = 'block';
-    } finally {
-      btnTriggerPyGenerate.disabled = false;
-      btnTriggerPyGenerate.textContent = 'Générer les graphiques';
-    }
-  });
-
-  async function loadPythonCharts() {
-    pyChartsGallery.innerHTML = '<p class="text-center text-muted">Recherche des graphiques générés...</p>';
-    try {
-      const res = await fetch(apiUrl('/api/charts/list'));
-      if (!res.ok) throw new Error('Impossible de charger la liste des graphiques');
-      const { charts } = await res.json();
-
-      if (!charts || charts.length === 0) {
-        pyChartsGallery.innerHTML = `
-          <div class="alert alert-info">
-            Aucun graphique n'est encore disponible. Générez-les avec Python 3 et les dépendances de <code>requirements.txt</code> installées sur ce serveur.
-          </div>
-        `;
-        return;
-      }
-
-      pyChartsGallery.innerHTML = charts.map(c => `
-        <article class="py-chart-card">
-          <div class="py-chart-card-header">
-            <h4>${escapeHTML(c.title)}</h4>
-            <a href="${apiUrl(c.url)}" download="${escapeHTML(c.name)}" class="btn btn-ghost btn-sm">Télécharger</a>
-          </div>
-          <img src="${apiUrl(c.url)}?t=${Date.now()}" alt="${escapeHTML(c.title)}" loading="lazy">
-        </article>
-      `).join('');
-    } catch (err) {
-      pyChartsGallery.innerHTML = `<p class="text-center text-danger">Erreur : ${err.message}</p>`;
-    }
-  }
 
   async function loadArchives() {
     const archivesTbody = document.getElementById('archives-tbody');
@@ -412,8 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${badgeHtml}</td>
             <td>${r.validFrom || '-'}</td>
             <td>
-              <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')">
-                Historique
+              <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Voir la courbe d'évolution et l'historique">
+                📈 Évolution
               </button>
             </td>
           </tr>
@@ -431,9 +365,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       chartTitle.textContent = `${data.country} - ${data.operator}`;
-      chartSubtitle.textContent = `Indicatif ${data.cc} | Tarif actuel en vigueur : ${data.currentPrice.toFixed(5)} € HT / SMS`;
+      chartSubtitle.textContent = `Indicatif ${data.cc || '-'} | Tarif actuel en vigueur : ${data.currentPrice.toFixed(5)} € HT / SMS`;
 
-      // Tableau d'historique
+      // 1. Dessiner la courbe d'évolution Canvas (par fichier importé)
+      const canvas = document.getElementById('operator-price-canvas');
+      drawOperatorHistoryChart(canvas, data.history, data.currentPrice);
+
+      // 2. Tableau détaillé d'historique
       historyTbody.innerHTML = (data.history || []).map(h => {
         const oldP = h.oldPrice !== undefined ? `${h.oldPrice.toFixed(5)} €` : '-';
         const newP = `${h.price.toFixed(5)} €`;
@@ -458,6 +396,180 @@ document.addEventListener('DOMContentLoaded', () => {
       alert(`Erreur historique : ${err.message}`);
     }
   };
+
+  /**
+   * Trace la courbe d'évolution précise pour cet opérateur en fonction des fichiers de mise à jour.
+   */
+  function drawOperatorHistoryChart(canvas, history, currentPrice) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const pointsCountEl = document.getElementById('chart-points-count');
+    const legendInfoEl = document.getElementById('chart-legend-info');
+
+    // Ordonner chronologiquement les points
+    const points = (history && history.length > 0)
+      ? [...history].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      : [{ date: 'Initial', price: currentPrice, oldPrice: currentPrice, source: 'Catalogue base' }];
+
+    if (pointsCountEl) {
+      pointsCountEl.textContent = `${points.length} point${points.length > 1 ? 's' : ''} d'évolution`;
+      pointsCountEl.className = points.length > 1 ? 'badge badge-success' : 'badge badge-neutral';
+    }
+
+    // Marges
+    const padLeft = 80;
+    const padRight = 50;
+    const padTop = 45;
+    const padBottom = 65;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    // Déterminer l'échelle de prix Min et Max
+    const prices = points.map(p => p.price);
+    let minPrice = Math.min(...prices);
+    let maxPrice = Math.max(...prices);
+
+    if (minPrice === maxPrice) {
+      minPrice = Math.max(0, minPrice * 0.85);
+      maxPrice = maxPrice * 1.15 || 0.05;
+    } else {
+      const margin = (maxPrice - minPrice) * 0.25;
+      minPrice = Math.max(0, minPrice - margin);
+      maxPrice = maxPrice + margin;
+    }
+
+    // 1. Grille horizontale de fond
+    const gridLines = 4;
+    ctx.strokeStyle = '#EEF2F6';
+    ctx.lineWidth = 1;
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#64748B';
+    ctx.textAlign = 'right';
+
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padTop + (plotH / gridLines) * i;
+      const val = maxPrice - ((maxPrice - minPrice) / gridLines) * i;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, y);
+      ctx.lineTo(width - padRight, y);
+      ctx.stroke();
+      ctx.fillText(`${val.toFixed(4)} €`, padLeft - 10, y + 4);
+    }
+
+    // 2. Coordonnées des points
+    const coords = points.map((p, idx) => {
+      const x = points.length === 1
+        ? padLeft + plotW / 2
+        : padLeft + (plotW / (points.length - 1)) * idx;
+      const y = padTop + plotH - ((p.price - minPrice) / (maxPrice - minPrice)) * plotH;
+      return { x, y, point: p };
+    });
+
+    // 3. Dégradé et courbe
+    if (coords.length >= 2) {
+      const grad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+      grad.addColorStop(0, 'rgba(226, 0, 26, 0.20)');
+      grad.addColorStop(1, 'rgba(226, 0, 26, 0.01)');
+
+      ctx.beginPath();
+      ctx.moveTo(coords[0].x, padTop + plotH);
+      coords.forEach(c => ctx.lineTo(c.x, c.y));
+      ctx.lineTo(coords[coords.length - 1].x, padTop + plotH);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Tracé de la ligne rouge SFR
+      ctx.beginPath();
+      ctx.moveTo(coords[0].x, coords[0].y);
+      for (let i = 1; i < coords.length; i++) {
+        ctx.lineTo(coords[i].x, coords[i].y);
+      }
+      ctx.strokeStyle = '#E2001A';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    } else {
+      // Un seul point : tracer une ligne directrice en pointillés
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(226, 0, 26, 0.35)';
+      ctx.moveTo(padLeft, coords[0].y);
+      ctx.lineTo(width - padRight, coords[0].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 4. Tracé des nœuds et étiquettes
+    coords.forEach((c, idx) => {
+      const p = c.point;
+
+      // Halo blanc extérieur
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#E2001A';
+      ctx.stroke();
+
+      // Point central rouge
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#E2001A';
+      ctx.fill();
+
+      // Étiquette de prix
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = '#0F172A';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${p.price.toFixed(5)} €`, c.x, c.y - 10);
+
+      // Variation (+% ou -%) par rapport au point précédent
+      if (idx > 0 && points[idx - 1]) {
+        const prevP = points[idx - 1].price;
+        if (prevP > 0 && p.price !== prevP) {
+          const diffPct = (((p.price - prevP) / prevP) * 100).toFixed(1);
+          ctx.font = 'bold 10px -apple-system, sans-serif';
+          if (p.price > prevP) {
+            ctx.fillStyle = '#DC2626';
+            ctx.fillText(`▲ +${diffPct}%`, c.x, c.y - 23);
+          } else {
+            ctx.fillStyle = '#059669';
+            ctx.fillText(`▼ ${diffPct}%`, c.x, c.y - 23);
+          }
+        }
+      }
+
+      // Date d'effet
+      ctx.font = '600 11px -apple-system, sans-serif';
+      ctx.fillStyle = '#1E293B';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.date || `Mise à jour ${idx + 1}`, c.x, padTop + plotH + 20);
+
+      // Nom du fichier source Sinch
+      const cleanSource = (p.source || 'base_tarifs.csv')
+        .replace(/^sinch_mail_\d+_/, '')
+        .slice(0, 24);
+      ctx.font = '10px -apple-system, sans-serif';
+      ctx.fillStyle = '#64748B';
+      ctx.fillText(`📄 ${cleanSource}`, c.x, padTop + plotH + 35);
+    });
+
+    if (legendInfoEl) {
+      if (points.length === 1) {
+        legendInfoEl.innerHTML = `Tarif initial du catalogue de base (<strong>${points[0].source || 'base_tarifs.csv'}</strong>). Chaque nouveau fichier Sinch reçu ajoutera automatiquement son point d'évolution sur cette courbe.`;
+      } else {
+        legendInfoEl.innerHTML = `Courbe d'évolution tracée sur <strong>${points.length} fichiers Sinch successifs</strong>. Chaque point correspond à une date d'effet et à un fichier précis.`;
+      }
+    }
+  }
 
   // Réinitialisation au catalogue de base (remise à 0 des hausses)
   const btnResetBase = document.getElementById('btn-reset-base');

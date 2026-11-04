@@ -23,10 +23,6 @@
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.67A6.974 6.974 0 0 0 1 8c0 .17.007.337.02.5h2.488zm.312 2.5a12.28 12.28 0 0 1-.312-2.5H1.02c.032.877.204 1.719.497 2.5h2.291zm.743 2.5c-.328-.756-.554-1.603-.64-2.5H2.255a7.024 7.024 0 0 0 3.072 2.472 6.7 6.7 0 0 1-.597-.933 9.267 9.267 0 0 1-.64-1.539zm2.437.923V12H5.145c.429.62.923 1.258 1.468 1.623.552.37 1.217.3 1.887.3zM8.5 14.923c.67 0 1.335-.07 1.887-.3.545-.365 1.039-1.003 1.468-1.623H8.5v2.923zm0-3.923h2.355a12.28 12.28 0 0 0 .312-2.5H8.5V11zm2.667-3.5a12.28 12.28 0 0 0-.312-2.5H8.5V7.5h2.667zm-3.667-6.423V4h2.355A7.97 7.97 0 0 0 9.387 2.932C8.835 1.897 8.17 1.28 7.5 1.077zM11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.472 6.7 6.7 0 0 1 .597.933c.277.472.493 1.001.64 1.539zm.582 3.5H15c-.013-.163-.02-.33-.02-.5a6.974 6.974 0 0 0-.67-2.5h-2.152c.174.782.282 1.623.312 2.5zm-.312 2.5c.03-.877.138-1.718.312-2.5h2.152a6.974 6.974 0 0 1-.67 2.5h-1.794zm-.743 2.5c.147-.538.363-1.067.64-1.539.162-.276.368-.588.597-.933A7.025 7.025 0 0 1 11.91 12h-1.835c-.086.897-.312 1.744-.64 2.5z"/></svg>
           Mettre à jour les tarifs
         </button>
-        <button id="btn-open-charts" class="btn btn-secondary">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M1 11a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-4zm6-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7zm6-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2z"/></svg>
-          📊 Analyses & graphiques
-        </button>
         <button id="btn-open-archives" class="btn btn-secondary">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
           Historique des versions
@@ -90,7 +86,7 @@
               <th>Ancien Tarif (€)</th>
               <th>Variation</th>
               <th>Date d'effet</th>
-              <th>Historique</th>
+              <th>📊 Évolution du tarif</th>
             </tr>
           </thead>
           <tbody id="prices-tbody">
@@ -182,19 +178,32 @@
     </div>
   </div>
 
-  <!-- MODAL HISTORIQUE DES TARIFS -->
+  <!-- MODAL HISTORIQUE & COURBE D'ÉVOLUTION DU TARIF -->
   <div id="modal-chart" class="modal">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
         <div>
-          <h3 id="chart-title">Historique du prix SMS</h3>
+          <h3 id="chart-title">Évolution du prix SMS</h3>
           <span id="chart-subtitle" class="subtitle"></span>
         </div>
         <button class="modal-close" data-close="modal-chart">&times;</button>
       </div>
       <div class="modal-body">
+        <!-- Zone du graphique interactif par fichier / date -->
+        <div class="chart-canvas-container" style="background: #FFFFFF; border: 1px solid var(--border-color, #E2E6EC); border-radius: 8px; padding: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <strong style="font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              📈 Courbe d'évolution du tarif (par fichier de mise à jour)
+            </strong>
+            <span id="chart-points-count" class="badge badge-neutral" style="font-size: 11px;">1 version</span>
+          </div>
+          <canvas id="operator-price-canvas" width="760" height="250" style="width: 100%; height: 250px; display: block; border-radius: 6px; background: #FAFBFD; border: 1px solid #ECEFF3;"></canvas>
+          <div id="chart-legend-info" style="font-size: 11px; color: var(--text-muted); margin-top: 10px; text-align: center;"></div>
+        </div>
+
+        <!-- Tableau détaillé des versions et fichiers sources -->
         <div class="history-table-container">
-          <h4>Historique détaillé des variations (prix, date d'effet et fichier source) :</h4>
+          <h4 style="font-size: 13px; margin: 0 0 10px 0;">Détail chronologique par fichier source Sinch :</h4>
           <table class="data-table small">
             <thead>
               <tr>
@@ -202,7 +211,7 @@
                 <th>Ancien Prix (€)</th>
                 <th>Nouveau Prix (€)</th>
                 <th>Évolution</th>
-                <th>Source / Fichier</th>
+                <th>Fichier source Sinch</th>
               </tr>
             </thead>
             <tbody id="history-tbody"></tbody>
@@ -211,34 +220,6 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close="modal-chart">Fermer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL ANALYSES PYTHON (MATPLOTLIB / SEABORN) -->
-  <div id="modal-python-charts" class="modal">
-    <div class="modal-dialog modal-lg charts-dialog">
-      <div class="modal-header">
-        <div>
-          <h3>Analyses & graphiques</h3>
-          <span class="subtitle">Comparaison par pays et évolution des tarifs historisés</span>
-        </div>
-        <button class="modal-close" data-close="modal-python-charts">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="charts-toolbar">
-          <p class="text-muted">Les prix moyens sont calculés sur les opérateurs de chaque pays. La tendance utilise les dates réellement présentes dans l’historique ; elle n’invente pas de points manquants.</p>
-          <button id="btn-trigger-py-generate" class="btn btn-primary btn-sm">
-            Générer les graphiques
-          </button>
-        </div>
-        <div id="py-generate-status" class="alert" style="display:none;"></div>
-        <div id="py-charts-gallery" class="py-charts-grid">
-          <p class="text-center text-muted">Chargement des graphiques...</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" data-close="modal-python-charts">Fermer</button>
       </div>
     </div>
   </div>
