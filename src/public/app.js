@@ -365,17 +365,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       chartTitle.textContent = `${data.country} - ${data.operator}`;
-      chartSubtitle.textContent = `Indicatif ${data.cc || '-'} | Tarif actuel en vigueur : ${data.currentPrice.toFixed(5)} € HT / SMS`;
+      chartSubtitle.textContent = `Indicatif ${data.cc || '-'} | Tarif actuel en vigueur : ${parseFloat(data.currentPrice || 0).toFixed(5)} € HT / SMS`;
 
-      // 1. Dessiner la courbe d'évolution Canvas (par fichier importé)
-      const canvas = document.getElementById('operator-price-canvas');
-      drawOperatorHistoryChart(canvas, data.history, data.currentPrice);
-
-      // 2. Tableau détaillé d'historique
+      // 1. Tableau détaillé d'historique
       historyTbody.innerHTML = (data.history || []).map(h => {
-        const oldP = h.oldPrice !== undefined ? `${h.oldPrice.toFixed(5)} €` : '-';
-        const newP = `${h.price.toFixed(5)} €`;
-        const diff = h.oldPrice !== undefined ? (h.price - h.oldPrice) : 0;
+        const oldP = h.oldPrice !== undefined ? `${parseFloat(h.oldPrice).toFixed(5)} €` : '-';
+        const newP = `${parseFloat(h.price || 0).toFixed(5)} €`;
+        const diff = h.oldPrice !== undefined ? (parseFloat(h.price || 0) - parseFloat(h.oldPrice || 0)) : 0;
         let evo = '<span class="badge badge-neutral">Base</span>';
         if (diff > 0) evo = `<span class="badge badge-danger">+${diff.toFixed(4)} €</span>`;
         else if (diff < 0) evo = `<span class="badge badge-success">${diff.toFixed(4)} €</span>`;
@@ -391,7 +387,17 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
 
+      // 2. Ouvrir le modal d'abord pour que le conteneur soit affiché dans le DOM
       openModal(modalChart);
+
+      // 3. Dessiner la courbe Canvas dès que le modal est visible
+      setTimeout(() => {
+        const canvas = document.getElementById('operator-price-canvas');
+        if (canvas) {
+          drawOperatorHistoryChart(canvas, data.history, data.currentPrice);
+        }
+      }, 60);
+
     } catch (err) {
       alert(`Erreur historique : ${err.message}`);
     }
@@ -403,18 +409,35 @@ document.addEventListener('DOMContentLoaded', () => {
   function drawOperatorHistoryChart(canvas, history, currentPrice) {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+    const width = canvas.width || 760;
+    const height = canvas.height || 250;
 
     ctx.clearRect(0, 0, width, height);
 
     const pointsCountEl = document.getElementById('chart-points-count');
     const legendInfoEl = document.getElementById('chart-legend-info');
 
-    // Ordonner chronologiquement les points
-    const points = (history && history.length > 0)
-      ? [...history].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      : [{ date: 'Initial', price: currentPrice, oldPrice: currentPrice, source: 'Catalogue base' }];
+    // Ordonner chronologiquement les points avec valeurs numériques garanties
+    const rawPoints = (history && Array.isArray(history) && history.length > 0)
+      ? history.map(h => ({
+          date: h.date || 'Initial',
+          price: parseFloat(h.price) || parseFloat(currentPrice) || 0.05,
+          oldPrice: parseFloat(h.oldPrice) || parseFloat(h.price) || 0.05,
+          source: h.source || 'Catalogue base'
+        })).sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      : [{
+          date: 'Initial',
+          price: parseFloat(currentPrice) || 0.05,
+          oldPrice: parseFloat(currentPrice) || 0.05,
+          source: 'Catalogue base'
+        }];
+
+    const points = rawPoints.length > 0 ? rawPoints : [{
+      date: 'Initial',
+      price: parseFloat(currentPrice) || 0.05,
+      oldPrice: parseFloat(currentPrice) || 0.05,
+      source: 'Catalogue base'
+    }];
 
     if (pointsCountEl) {
       pointsCountEl.textContent = `${points.length} point${points.length > 1 ? 's' : ''} d'évolution`;
@@ -426,8 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const padRight = 50;
     const padTop = 45;
     const padBottom = 65;
-    const plotW = width - padLeft - padRight;
-    const plotH = height - padTop - padBottom;
+    const plotW = Math.max(100, width - padLeft - padRight);
+    const plotH = Math.max(100, height - padTop - padBottom);
 
     // Déterminer l'échelle de prix Min et Max
     const prices = points.map(p => p.price);
@@ -441,6 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const margin = (maxPrice - minPrice) * 0.25;
       minPrice = Math.max(0, minPrice - margin);
       maxPrice = maxPrice + margin;
+    }
+
+    // Éviter division par 0
+    if (maxPrice <= minPrice) {
+      maxPrice = minPrice + 0.01;
     }
 
     // 1. Grille horizontale de fond
