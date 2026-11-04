@@ -70,7 +70,15 @@ function formatChartTitle(filename) {
 
 const server = http.createServer((req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = reqUrl.pathname;
+  let pathname = reqUrl.pathname;
+
+  // Normaliser le chemin en retirant un prefixe eventuel de reverse proxy (/dmc)
+  if (pathname.startsWith('/dmc/')) {
+    pathname = pathname.slice(4);
+  } else if (pathname === '/dmc') {
+    pathname = '/';
+  }
+
   const query = Object.fromEntries(reqUrl.searchParams.entries());
   const method = req.method.toUpperCase();
 

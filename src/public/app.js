@@ -260,7 +260,13 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         body: selectedFileContent
       });
-      const data = await res.json();
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (jsonErr) {
+        throw new Error(`Le serveur a renvoyé une réponse invalide (${res.status} ${res.statusText})`);
+      }
 
       if (res.ok && data.success) {
         showUploadStatus(`Succès : ${data.details.countCreated} créés, ${data.details.countUpdated} mis à jour. Total actif : ${data.details.total}`, 'success');
