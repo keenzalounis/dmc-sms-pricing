@@ -64,17 +64,14 @@
             Export Facturation
           </button>
 
-          <!-- Profil utilisateur unifié et Déconnexion -->
-          <div class="user-menu-box" style="display: flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.2);">
-            <button id="btn-open-account" class="btn btn-secondary btn-sm" title="Ouvrir mon compte et les accès" style="display: flex; align-items: center; gap: 7px; padding: 5px 10px;">
+          <!-- Profil utilisateur unifié -->
+          <div class="user-menu-box" style="margin-left: 8px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.2);">
+            <button id="btn-open-account" class="btn btn-secondary btn-sm" title="Ouvrir mon compte et les paramètres" style="display: flex; align-items: center; gap: 7px; padding: 5px 12px;">
               <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15;">
                 <span id="user-display-name" style="font-size: 12px; font-weight: 600; color: #FFFFFF;">Utilisateur</span>
                 <span id="user-display-role" class="badge" style="font-size: 9px; padding: 1px 5px; margin-top: 1px;">Rôle</span>
               </span>
-              <span style="font-size: 12px; opacity: 0.85;">⚙️</span>
-            </button>
-            <button id="btn-logout" class="btn btn-ghost btn-sm" title="Se déconnecter" style="font-size: 12px; padding: 6px 10px; color: #FECACA;">
-              🚪
+              <span style="font-size: 13px; opacity: 0.85;">⚙️</span>
             </button>
           </div>
         </div>
@@ -324,6 +321,9 @@
           <button type="button" class="account-tab-btn" data-tab="pane-profile">
             ℹ️ Mes informations
           </button>
+          <button type="button" class="account-tab-btn" data-tab="pane-logout" style="color: #DC2626; margin-left: auto;">
+            🚪 Déconnexion
+          </button>
         </div>
 
         <!-- Rubrique 1 : Liste des collaborateurs -->
@@ -435,6 +435,23 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Rubrique 5 : Déconnexion de session -->
+        <div id="pane-logout" class="account-tab-pane" style="display: none;">
+          <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 24px; text-align: center; max-width: 440px; margin: 10px auto;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🚪</div>
+            <h4 style="margin: 0 0 8px 0; font-size: 16px; color: #991B1B;">Fermer la session en cours ?</h4>
+            <p style="font-size: 13px; color: #7F1D1D; margin: 0 0 20px 0;">
+              Vous devrez saisir à nouveau vos identifiants pour accéder à la plateforme DMC SMS Pricing.
+            </p>
+            <div style="display: flex; justify-content: center; gap: 12px;">
+              <button type="button" class="btn btn-ghost" data-close="modal-account">Rester connecté</button>
+              <button type="button" id="btn-modal-logout-confirm" class="btn btn-primary" style="background: #DC2626; border-color: #DC2626; padding: 10px 20px;">
+                Confirmer la déconnexion
+              </button>
+            </div>
           </div>
         </div>
       </div>

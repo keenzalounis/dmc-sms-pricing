@@ -9,9 +9,9 @@ echo "======================================================"
 echo "1. Récupération des dernières mises à jour..."
 git fetch origin && git reset --hard origin/main
 
-# 2. Vérification et création automatique du fichier de configuration mail si manquant
+# 2. Initialisation de data/mail_config.json si manquant
 if [ ! -f data/mail_config.json ] && [ -f data/mail_config.example.json ]; then
-    echo "2. Initialisation de data/mail_config.json..."
+    echo "2. Initialisation de data/mail_config.json depuis l'exemple..."
     cp data/mail_config.example.json data/mail_config.json
 fi
 

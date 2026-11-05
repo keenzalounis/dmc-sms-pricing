@@ -223,6 +223,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const btnModalLogoutConfirm = document.getElementById('btn-modal-logout-confirm');
+  if (btnModalLogoutConfirm) {
+    btnModalLogoutConfirm.addEventListener('click', async () => {
+      try {
+        await fetch(apiUrl('/api/auth/logout'), { method: 'POST' });
+      } catch (e) {}
+      if (modalAccount) closeModal(modalAccount);
+      showLoginScreen();
+    });
+  }
+
   // --- GESTION DES COMPTES COLLABORATEURS (ADMIN) ---
 
   async function loadUsersList() {

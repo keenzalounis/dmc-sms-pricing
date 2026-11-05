@@ -31,6 +31,7 @@ async function ingestManualCSV(csvContent, filename, alertSender = sendSinchAler
       message: `Erreur lors de l'ingestion : ${error.message}`,
       details: error.details,
       alertSent: Boolean(alertResult && alertResult.success),
+      alertRecipient: alertResult ? alertResult.recipient : undefined,
       alertError: alertResult && !alertResult.success
         ? (alertResult.reason || alertResult.error || 'Le transport de messagerie a refusé l’envoi.')
         : undefined
