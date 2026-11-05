@@ -6,7 +6,8 @@
   "user": "dmc.tarifs.sinch@gmail.com",
   "password": "METTRE_ICI_LE_MOT_DE_PASSE_APPLICATION_16_LETTRES",
   "allowedSenders": [
-    "@sinch.com"
+    "@sinch.com",
+    "kenza.lounis@sfr.com"
   ],
   "requireAttachmentExtension": ".csv",
   "markAsRead": true,
