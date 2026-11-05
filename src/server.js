@@ -231,14 +231,36 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5b. POST /api/reset-base : Réinitialise la base au catalogue de base (remet les hausses à 0)
+  // 5b. POST /api/reset-base : Réinitialise la base au catalogue de base (exige code PIN 2026)
   if (pathname === '/api/reset-base' && method === 'POST') {
-    try {
-      const result = resetToBaseCatalog();
-      sendJSON(res, 200, { success: true, details: result });
-    } catch (err) {
-      sendError(res, 500, `Erreur lors de la réinitialisation : ${err.message}`);
-    }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        let code = '';
+        if (body) {
+          try {
+            const parsed = JSON.parse(body);
+            code = String(parsed.code || '').trim();
+          } catch (e) {
+            code = String(body).trim();
+          }
+        }
+        if (code !== '2026') {
+          sendError(res, 403, 'Code de sécurité incorrect. La réinitialisation exige le code PIN 2026.');
+          return;
+        }
+
+        const result = resetToBaseCatalog(true);
+        sendJSON(res, 200, {
+          success: true,
+          details: result,
+          message: 'Plateforme réinitialisée avec succès au catalogue officiel (913 destinations, 0 hausse).'
+        });
+      } catch (err) {
+        sendError(res, 500, `Erreur lors de la réinitialisation : ${err.message}`);
+      }
+    });
     return;
   }
 

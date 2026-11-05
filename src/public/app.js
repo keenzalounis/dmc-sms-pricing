@@ -623,6 +623,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Réinitialisation sécurisée protégée par le code PIN 2026
+  const modalPinReset = document.getElementById('modal-pin-reset');
+  const btnResetBase = document.getElementById('btn-reset-base');
+  const btnConfirmPinReset = document.getElementById('btn-confirm-pin-reset');
+  const inputPinReset = document.getElementById('input-pin-reset');
+  const pinResetError = document.getElementById('pin-reset-error');
+
+  if (btnResetBase && modalPinReset) {
+    btnResetBase.addEventListener('click', () => {
+      if (inputPinReset) inputPinReset.value = '';
+      if (pinResetError) pinResetError.style.display = 'none';
+      openModal(modalPinReset);
+      if (inputPinReset) inputPinReset.focus();
+    });
+  }
+
+  if (btnConfirmPinReset) {
+    btnConfirmPinReset.addEventListener('click', async () => {
+      const code = inputPinReset ? inputPinReset.value.trim() : '';
+      if (pinResetError) pinResetError.style.display = 'none';
+
+      if (code !== '2026') {
+        if (pinResetError) {
+          pinResetError.textContent = 'Code de sécurité incorrect. Veuillez saisir 2026 pour confirmer.';
+          pinResetError.style.display = 'block';
+        }
+        if (inputPinReset) {
+          inputPinReset.value = '';
+          inputPinReset.focus();
+        }
+        return;
+      }
+
+      btnConfirmPinReset.disabled = true;
+      btnConfirmPinReset.textContent = 'Réinitialisation en cours...';
+
+      try {
+        const res = await fetch(apiUrl('/api/reset-base'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: '2026' })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          closeModal(modalPinReset);
+          closeModal(modalArchives);
+          loadKPIs();
+          loadPrices();
+          loadArchives();
+          alert('✓ Réinitialisation réussie ! La plateforme est revenue au catalogue officiel Sinch (913 destinations, 0 hausse).');
+        } else {
+          if (pinResetError) {
+            pinResetError.textContent = data.message || 'Erreur lors de la réinitialisation.';
+            pinResetError.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (pinResetError) {
+          pinResetError.textContent = `Erreur réseau : ${err.message}`;
+          pinResetError.style.display = 'block';
+        }
+      } finally {
+        btnConfirmPinReset.disabled = false;
+        btnConfirmPinReset.textContent = 'Confirmer et Réinitialiser';
+      }
+    });
+  }
+
   // Suppression d'une archive
   window.deleteArchive = async function(filename) {
     if (!confirm(`Supprimer définitivement cette archive ? Les tarifs actuellement actifs ne seront pas modifiés.\n\nFichier : ${filename}`)) {

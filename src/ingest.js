@@ -8,6 +8,7 @@
  * Maintient l'historique complet pour tracer l'évolution des prix dans le temps.
  */
 
+//donner l'acces au systeme de fichier 
 const fs = require('fs');
 const path = require('path');
 
@@ -386,8 +387,10 @@ function restoreDatabaseArchive(filename) {
  * Réinitialise la base au catalogue de base officiel Sinch (protégé).
  * Remet toutes les variations (hausses/baisses) à 0.
  * Le fichier de base officiel ne peut JAMAIS être supprimé.
+ *
+ * @param {boolean} [clearArchives=false] - Si true, vide également les archives de test
  */
-function resetToBaseCatalog() {
+function resetToBaseCatalog(clearArchives = false) {
   const baseFile = fs.existsSync(OFFICIAL_BASE_CSV) ? OFFICIAL_BASE_CSV : BASE_CSV_PATH;
   if (!fs.existsSync(baseFile)) {
     throw new Error('Fichier de base officiel introuvable.');
@@ -450,6 +453,21 @@ function resetToBaseCatalog() {
   }
 
   saveDatabase(db);
+
+  // Nettoyage optionnel des archives de test
+  if (clearArchives && fs.existsSync(ARCHIVES_DIR)) {
+    try {
+      const files = fs.readdirSync(ARCHIVES_DIR);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          fs.unlinkSync(path.join(ARCHIVES_DIR, file));
+        }
+      }
+    } catch (e) {
+      console.warn(`[WARN] Erreur lors du nettoyage des archives : ${e.message}`);
+    }
+  }
+
   return {
     totalDestinations: Object.keys(db.records).length,
     totalIncreases: 0,

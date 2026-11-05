@@ -244,8 +244,40 @@
           </table>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <button id="btn-reset-base" class="btn btn-secondary" style="color: #DC2626; border-color: #FECACA; background: #FEF2F2;" title="Réinitialiser toute la plateforme au catalogue officiel de base (Code PIN 2026 requis)">
+          ⚠️ ↺ Réinitialiser la plateforme au catalogue de base (Code 2026)
+        </button>
         <button class="btn btn-ghost" data-close="modal-archives">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONFIRMATION AVEC CODE PIN 2026 -->
+  <div id="modal-pin-reset" class="modal">
+    <div class="modal-dialog" style="max-width: 460px;">
+      <div class="modal-header" style="background: #FEF2F2; border-bottom: 1px solid #FECACA;">
+        <h3 style="color: #991B1B; display: flex; align-items: center; gap: 8px;">
+          ⚠️ Réinitialisation de la plateforme
+        </h3>
+        <button class="modal-close" data-close="modal-pin-reset">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div class="alert alert-danger" style="margin-bottom: 14px; font-size: 12px; line-height: 1.4;">
+          <strong>Attention, risque d'écrasement des données de test :</strong><br>
+          Cette action va annuler tous les fichiers de test importés et restaurer la plateforme au <strong>catalogue officiel Sinch (913 destinations d'origine, 0 hausse)</strong>.
+        </div>
+        <p style="font-size: 13px; color: var(--text-primary); margin-bottom: 10px;">
+          Pour confirmer, veuillez saisir le code de sécurité <strong>2026</strong> :
+        </p>
+        <div class="form-group" style="margin-bottom: 10px;">
+          <input type="password" id="input-pin-reset" placeholder="Entrez 2026" maxlength="8" style="width: 100%; padding: 10px 14px; font-size: 16px; font-weight: bold; letter-spacing: 4px; text-align: center; border: 2px solid var(--border-color); border-radius: 6px;">
+        </div>
+        <div id="pin-reset-error" class="alert alert-danger" style="display:none; font-size: 12px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-pin-reset">Annuler</button>
+        <button id="btn-confirm-pin-reset" class="btn btn-primary" style="background: #DC2626; border-color: #DC2626;">Confirmer et Réinitialiser</button>
       </div>
     </div>
   </div>
