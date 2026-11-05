@@ -8,8 +8,40 @@
 </head>
 <body>
 
-  <!-- En-tête principal -->
-  <header class="app-header">
+  <!-- ÉCRAN DE CONNEXION SÉCURISÉ SFR BUSINESS -->
+  <div id="view-login" style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #F1F4F8; padding: 20px;">
+    <div style="background: #FFFFFF; width: 100%; max-width: 420px; border-radius: 10px; border: 1px solid #E2E6EC; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden;">
+      <div style="background: #1C2024; padding: 24px; text-align: center; border-bottom: 3px solid #E2001A;">
+        <div style="background: #E2001A; color: #FFFFFF; font-weight: 800; font-size: 13px; display: inline-block; padding: 4px 10px; border-radius: 4px; letter-spacing: 1px; margin-bottom: 8px;">SFR BUSINESS</div>
+        <h2 style="color: #FFFFFF; margin: 0; font-size: 19px; font-weight: 700;">DMC SMS Pricing</h2>
+        <p style="color: #94A3B8; margin: 6px 0 0; font-size: 12px;">Portail sécurisé de tarification SMS Sinch</p>
+      </div>
+      <div style="padding: 28px;">
+        <div id="login-error" class="alert alert-danger" style="display: none; margin-bottom: 16px; font-size: 13px;"></div>
+        <form id="form-login">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label for="login-email" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Identifiant / Adresse e-mail :</label>
+            <input type="email" id="login-email" placeholder="kenza.lounis@sfr.com" required style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+          </div>
+          <div class="form-group" style="margin-bottom: 22px;">
+            <label for="login-password" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Mot de passe :</label>
+            <input type="password" id="login-password" placeholder="••••••••" required style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+          </div>
+          <button type="submit" id="btn-login-submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 14px; font-weight: 600; justify-content: center;">
+            Se connecter
+          </button>
+        </form>
+        <div style="margin-top: 20px; text-align: center; font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+          Accès confidentiel réservé aux collaborateurs autorisés de l'équipe DMC et Facturation.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION PRINCIPALE AUTHENTIFIÉE -->
+  <div id="view-app" style="display: none;">
+    <!-- En-tête principal -->
+    <header class="app-header">
     <div class="header-container">
       <div class="brand">
         <div class="logo-badge">SFR</div>
@@ -18,20 +50,37 @@
           <span class="subtitle">Référentiel Tarifs Internationaux Sinch & Facturation</span>
         </div>
       </div>
-      <div class="header-actions">
-        <button id="btn-open-update" class="btn btn-secondary">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.67A6.974 6.974 0 0 0 1 8c0 .17.007.337.02.5h2.488zm.312 2.5a12.28 12.28 0 0 1-.312-2.5H1.02c.032.877.204 1.719.497 2.5h2.291zm.743 2.5c-.328-.756-.554-1.603-.64-2.5H2.255a7.024 7.024 0 0 0 3.072 2.472 6.7 6.7 0 0 1-.597-.933 9.267 9.267 0 0 1-.64-1.539zm2.437.923V12H5.145c.429.62.923 1.258 1.468 1.623.552.37 1.217.3 1.887.3zM8.5 14.923c.67 0 1.335-.07 1.887-.3.545-.365 1.039-1.003 1.468-1.623H8.5v2.923zm0-3.923h2.355a12.28 12.28 0 0 0 .312-2.5H8.5V11zm2.667-3.5a12.28 12.28 0 0 0-.312-2.5H8.5V7.5h2.667zm-3.667-6.423V4h2.355A7.97 7.97 0 0 0 9.387 2.932C8.835 1.897 8.17 1.28 7.5 1.077zM11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.472 6.7 6.7 0 0 1 .597.933c.277.472.493 1.001.64 1.539zm.582 3.5H15c-.013-.163-.02-.33-.02-.5a6.974 6.974 0 0 0-.67-2.5h-2.152c.174.782.282 1.623.312 2.5zm-.312 2.5c.03-.877.138-1.718.312-2.5h2.152a6.974 6.974 0 0 1-.67 2.5h-1.794zm-.743 2.5c.147-.538.363-1.067.64-1.539.162-.276.368-.588.597-.933A7.025 7.025 0 0 1 11.91 12h-1.835c-.086.897-.312 1.744-.64 2.5z"/></svg>
-          Mettre à jour les tarifs
-        </button>
-        <button id="btn-open-archives" class="btn btn-secondary">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
-          Historique des versions
-        </button>
-        <button id="btn-open-export" class="btn btn-primary">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
-          Export Facturation
-        </button>
-      </div>
+        <div class="header-actions">
+          <button id="btn-open-update" class="btn btn-secondary admin-only">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.67A6.974 6.974 0 0 0 1 8c0 .17.007.337.02.5h2.488zm.312 2.5a12.28 12.28 0 0 1-.312-2.5H1.02c.032.877.204 1.719.497 2.5h2.291zm.743 2.5c-.328-.756-.554-1.603-.64-2.5H2.255a7.024 7.024 0 0 0 3.072 2.472 6.7 6.7 0 0 1-.597-.933 9.267 9.267 0 0 1-.64-1.539zm2.437.923V12H5.145c.429.62.923 1.258 1.468 1.623.552.37 1.217.3 1.887.3zM8.5 14.923c.67 0 1.335-.07 1.887-.3.545-.365 1.039-1.003 1.468-1.623H8.5v2.923zm0-3.923h2.355a12.28 12.28 0 0 0 .312-2.5H8.5V11zm2.667-3.5a12.28 12.28 0 0 0-.312-2.5H8.5V7.5h2.667zm-3.667-6.423V4h2.355A7.97 7.97 0 0 0 9.387 2.932C8.835 1.897 8.17 1.28 7.5 1.077zM11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.472 6.7 6.7 0 0 1 .597.933c.277.472.493 1.001.64 1.539zm.582 3.5H15c-.013-.163-.02-.33-.02-.5a6.974 6.974 0 0 0-.67-2.5h-2.152c.174.782.282 1.623.312 2.5zm-.312 2.5c.03-.877.138-1.718.312-2.5h2.152a6.974 6.974 0 0 1-.67 2.5h-1.794zm-.743 2.5c.147-.538.363-1.067.64-1.539.162-.276.368-.588.597-.933A7.025 7.025 0 0 1 11.91 12h-1.835c-.086.897-.312 1.744-.64 2.5z"/></svg>
+            Mettre à jour les tarifs
+          </button>
+          <button id="btn-open-archives" class="btn btn-secondary admin-only">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+            Historique des versions
+          </button>
+          <button id="btn-open-export" class="btn btn-primary">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+            Export Facturation
+          </button>
+
+          <!-- Profil utilisateur et Déconnexion -->
+          <div class="user-menu-box" style="display: flex; align-items: center; gap: 8px; margin-left: 6px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.2);">
+            <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;">
+              <span id="user-display-name" style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Utilisateur</span>
+              <span id="user-display-role" class="badge" style="font-size: 10px; padding: 1px 6px;">Rôle</span>
+            </div>
+            <button id="btn-open-users" class="btn btn-secondary btn-sm admin-only" title="Gérer les comptes collaborateurs" style="font-size: 12px; padding: 5px 9px;">
+              👥 Comptes
+            </button>
+            <button id="btn-open-password" class="btn btn-ghost btn-sm" title="Modifier mon mot de passe" style="font-size: 12px; padding: 5px 8px; color: #E2E8F0;">
+              🔑
+            </button>
+            <button id="btn-logout" class="btn btn-ghost btn-sm" title="Se déconnecter" style="font-size: 12px; padding: 5px 8px; color: #FECACA;">
+              🚪
+            </button>
+          </div>
+        </div>
     </div>
   </header>
 
@@ -252,6 +301,107 @@
       </div>
     </div>
   </div>
+
+  <!-- MODAL GESTION DES COLLABORATEURS (ADMIN) -->
+  <div id="modal-users" class="modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>👥 Gestion des accès & collaborateurs</h3>
+          <span class="subtitle">Création et gestion des comptes utilisateurs SFR Business</span>
+        </div>
+        <button class="modal-close" data-close="modal-users">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Formulaire d'ajout d'un collaborateur -->
+        <div style="background: #FAFBFD; border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+          <h4 style="margin: 0 0 12px 0; font-size: 14px;">➕ Ajouter un collaborateur</h4>
+          <div id="user-create-status" class="alert" style="display:none; font-size: 12px; margin-bottom: 12px;"></div>
+          <form id="form-create-user" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div class="form-group">
+              <label for="new-user-name" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Nom complet :</label>
+              <input type="text" id="new-user-name" placeholder="Ex: Gabriel Dupont" required style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+            </div>
+            <div class="form-group">
+              <label for="new-user-email" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Adresse e-mail :</label>
+              <input type="email" id="new-user-email" placeholder="prenom.nom@sfr.com" required style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+            </div>
+            <div class="form-group">
+              <label for="new-user-password" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Mot de passe temporaire :</label>
+              <input type="password" id="new-user-password" placeholder="Min. 6 caractères" required style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+            </div>
+            <div class="form-group">
+              <label for="new-user-role" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Rôle attribué :</label>
+              <select id="new-user-role" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; background: #FFF;">
+                <option value="billing">Facturation (Consultation & Export)</option>
+                <option value="admin">Administrateur (Accès total)</option>
+              </select>
+            </div>
+            <div>
+              <button type="submit" id="btn-submit-create-user" class="btn btn-primary btn-sm" style="height: 36px; width: 100%; justify-content: center;">
+                Créer l'accès
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Liste des utilisateurs actuels -->
+        <div>
+          <h4 style="margin: 0 0 10px 0; font-size: 14px;">Comptes actifs sur la plateforme :</h4>
+          <div class="table-responsive">
+            <table class="data-table small">
+              <thead>
+                <tr>
+                  <th>Collaborateur</th>
+                  <th>E-mail</th>
+                  <th>Rôle</th>
+                  <th>Date de création</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody">
+                <tr><td colspan="5" class="text-center text-muted">Chargement des comptes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-users">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CHANGER MOT DE PASSE -->
+  <div id="modal-password" class="modal">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>🔑 Modifier mon mot de passe</h3>
+        <button class="modal-close" data-close="modal-password">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div id="pwd-change-status" class="alert" style="display:none; font-size: 12px; margin-bottom: 14px;"></div>
+        <form id="form-change-password">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="pwd-old" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Ancien mot de passe :</label>
+            <input type="password" id="pwd-old" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+          </div>
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label for="pwd-new" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Nouveau mot de passe (min. 6 car.) :</label>
+            <input type="password" id="pwd-new" required minlength="6" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+          </div>
+          <button type="submit" id="btn-submit-pwd" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+            Mettre à jour mon mot de passe
+          </button>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" data-close="modal-password">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- Fin #view-app -->
 
   <script src="app.js?v=20261105"></script>
 </body>

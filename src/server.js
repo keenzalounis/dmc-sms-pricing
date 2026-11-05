@@ -26,6 +26,18 @@ const {
   initNightlySyncScheduler,
   calculateMsUntilNextSchedule
 } = require('./mail_sync');
+const {
+  verifyPassword,
+  findUserByEmail,
+  findUserById,
+  loadUsers,
+  createUser,
+  deleteUser,
+  updatePassword,
+  createSession,
+  destroySession,
+  authenticateRequest
+} = require('./auth');
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -69,6 +81,22 @@ function formatChartTitle(filename) {
   return titles[base] || base.replace(/_/g, ' ');
 }
 
+function readJSONBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      if (!body || !body.trim()) return resolve({});
+      try {
+        resolve(JSON.parse(body));
+      } catch (err) {
+        reject(new Error('Corps de requête JSON invalide'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 const server = http.createServer((req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   let pathname = reqUrl.pathname;
@@ -86,11 +114,151 @@ const server = http.createServer((req, res) => {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // --- ROUTES D'AUTHENTIFICATION PUBLIQUES ---
+
+  // A. POST /api/auth/login : Connexion
+  if (pathname === '/api/auth/login' && method === 'POST') {
+    readJSONBody(req).then(({ email, password }) => {
+      if (!email || !password) {
+        sendError(res, 400, 'Veuillez renseigner votre email et votre mot de passe.');
+        return;
+      }
+      const user = findUserByEmail(email);
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        sendError(res, 401, 'Adresse email ou mot de passe incorrect.');
+        return;
+      }
+      const session = createSession(user);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Set-Cookie': `dmc_session=${session.token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800`
+      });
+      res.end(JSON.stringify({
+        success: true,
+        user: { id: user.id, email: user.email, name: user.name, role: user.role }
+      }));
+    }).catch(err => sendError(res, 400, err.message));
+    return;
+  }
+
+  // B. GET /api/auth/me : Vérifier la session active
+  if (pathname === '/api/auth/me' && method === 'GET') {
+    const auth = authenticateRequest(req);
+    if (!auth.authenticated) {
+      sendJSON(res, 200, { authenticated: false });
+      return;
+    }
+    sendJSON(res, 200, {
+      authenticated: true,
+      user: {
+        id: auth.user.userId,
+        email: auth.user.email,
+        name: auth.user.name,
+        role: auth.user.role
+      }
+    });
+    return;
+  }
+
+  // C. POST /api/auth/logout : Déconnexion
+  if (pathname === '/api/auth/logout' && method === 'POST') {
+    const auth = authenticateRequest(req);
+    if (auth.authenticated && auth.user && auth.user.token) {
+      destroySession(auth.user.token);
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Set-Cookie': 'dmc_session=; HttpOnly; Path=/; Max-Age=0'
+    });
+    res.end(JSON.stringify({ success: true, message: 'Déconnexion réussie.' }));
+    return;
+  }
+
+  // --- CONTRÔLE D'ACCÈS POUR LES ROUTES D'API PROTÉGÉES ---
+  if (pathname.startsWith('/api/')) {
+    const auth = authenticateRequest(req);
+    if (!auth.authenticated) {
+      sendError(res, 401, 'Authentification requise pour accéder aux services DMC.');
+      return;
+    }
+    req.user = auth.user;
+
+    // Protection des routes d'administration : rôle admin requis
+    const ADMIN_ONLY_PREFIXES = [
+      '/api/upload',
+      '/api/reset-base',
+      '/api/mail/sync',
+      '/api/users'
+    ];
+    const needsAdmin = ADMIN_ONLY_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'));
+    if (needsAdmin && req.user.role !== 'admin') {
+      sendError(res, 403, 'Accès refusé : cette action est réservée à l\'administrateur.');
+      return;
+    }
+  }
+
+  // D. GET /api/users : Liste des utilisateurs (Admin)
+  if (pathname === '/api/users' && method === 'GET') {
+    const users = loadUsers().map(u => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      createdAt: u.createdAt
+    }));
+    sendJSON(res, 200, { count: users.length, users });
+    return;
+  }
+
+  // E. POST /api/users : Créer un nouvel utilisateur (Admin)
+  if (pathname === '/api/users' && method === 'POST') {
+    readJSONBody(req).then(({ email, name, password, role }) => {
+      try {
+        const newUser = createUser({ email, name, password, role });
+        sendJSON(res, 201, { success: true, user: newUser, message: 'Utilisateur créé avec succès.' });
+      } catch (err) {
+        sendError(res, 400, err.message);
+      }
+    }).catch(err => sendError(res, 400, err.message));
+    return;
+  }
+
+  // F. DELETE /api/users/:id : Supprimer un utilisateur (Admin)
+  if (pathname.startsWith('/api/users/') && method === 'DELETE') {
+    const userId = decodeURIComponent(pathname.slice('/api/users/'.length));
+    try {
+      deleteUser(userId);
+      sendJSON(res, 200, { success: true, message: 'Utilisateur supprimé.' });
+    } catch (err) {
+      sendError(res, 400, err.message);
+    }
+    return;
+  }
+
+  // G. POST /api/auth/change-password : Changer son mot de passe
+  if (pathname === '/api/auth/change-password' && method === 'POST') {
+    readJSONBody(req).then(({ oldPassword, newPassword }) => {
+      const user = findUserById(req.user.userId);
+      if (!user || !verifyPassword(oldPassword, user.passwordHash)) {
+        sendError(res, 400, 'Ancien mot de passe incorrect.');
+        return;
+      }
+      try {
+        updatePassword(user.id, newPassword);
+        sendJSON(res, 200, { success: true, message: 'Mot de passe modifié avec succès.' });
+      } catch (err) {
+        sendError(res, 400, err.message);
+      }
+    }).catch(err => sendError(res, 400, err.message));
     return;
   }
 

@@ -20,6 +20,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const pricesTbody = document.getElementById('prices-tbody');
   const btnRefresh = document.getElementById('btn-refresh');
 
+  // Éléments Authentification & Utilisateurs
+  const viewLogin = document.getElementById('view-login');
+  const viewApp = document.getElementById('view-app');
+  const formLogin = document.getElementById('form-login');
+  const loginEmail = document.getElementById('login-email');
+  const loginPassword = document.getElementById('login-password');
+  const loginError = document.getElementById('login-error');
+  const btnLoginSubmit = document.getElementById('btn-login-submit');
+
+  const userDisplayName = document.getElementById('user-display-name');
+  const userDisplayRole = document.getElementById('user-display-role');
+  const btnLogout = document.getElementById('btn-logout');
+  const btnOpenUsers = document.getElementById('btn-open-users');
+  const btnOpenPassword = document.getElementById('btn-open-password');
+  const modalUsers = document.getElementById('modal-users');
+  const modalPassword = document.getElementById('modal-password');
+  const usersTbody = document.getElementById('users-tbody');
+  const formCreateUser = document.getElementById('form-create-user');
+  const userCreateStatus = document.getElementById('user-create-status');
+  const formChangePassword = document.getElementById('form-change-password');
+  const pwdChangeStatus = document.getElementById('pwd-change-status');
+
+  let currentUser = null;
+
   // Modals
   const modalExport = document.getElementById('modal-export');
   const modalUpload = document.getElementById('modal-upload');
@@ -52,17 +76,260 @@ document.addEventListener('DOMContentLoaded', () => {
   const chartPointsCount = document.getElementById('chart-points-count');
   const chartLegendInfo = document.getElementById('chart-legend-info');
 
-  // --- Initialisation ---
-  loadKPIs();
-  loadPrices();
+  // --- Initialisation : Vérification de la session active ---
+  checkAuth();
 
   // Auto-rafraîchissement discret toutes les 30 secondes en arrière-plan
   setInterval(() => {
+    if (!currentUser) return;
     loadKPIs();
     if (!searchInput.value.trim()) {
       loadPrices();
     }
   }, 30000);
+
+  // --- LOGIQUE D'AUTHENTIFICATION & SESSIONS ---
+
+  async function checkAuth() {
+    try {
+      const res = await fetch(apiUrl('/api/auth/me'));
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        initAppSession(data.user);
+      } else {
+        showLoginScreen();
+      }
+    } catch (err) {
+      showLoginScreen();
+    }
+  }
+
+  function showLoginScreen() {
+    currentUser = null;
+    if (viewLogin) viewLogin.style.display = 'flex';
+    if (viewApp) viewApp.style.display = 'none';
+    if (loginPassword) loginPassword.value = '';
+    if (loginError) loginError.style.display = 'none';
+  }
+
+  function initAppSession(user) {
+    currentUser = user;
+    if (viewLogin) viewLogin.style.display = 'none';
+    if (viewApp) viewApp.style.display = 'block';
+
+    if (userDisplayName) userDisplayName.textContent = user.name || user.email;
+    if (userDisplayRole) {
+      userDisplayRole.textContent = user.role === 'admin' ? 'Admin' : 'Facturation';
+      userDisplayRole.className = user.role === 'admin' ? 'badge badge-danger' : 'badge badge-neutral';
+    }
+
+    // Gestion des droits selon le rôle (Admin vs Facturation)
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = user.role === 'admin' ? '' : 'none';
+    });
+
+    loadKPIs();
+    loadPrices();
+  }
+
+  if (formLogin) {
+    formLogin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = loginEmail.value.trim();
+      const password = loginPassword.value;
+      if (!email || !password) return;
+
+      btnLoginSubmit.disabled = true;
+      btnLoginSubmit.textContent = 'Connexion en cours...';
+      if (loginError) loginError.style.display = 'none';
+
+      try {
+        const res = await fetch(apiUrl('/api/auth/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          initAppSession(data.user);
+        } else {
+          if (loginError) {
+            loginError.textContent = data.message || 'Identifiants incorrects.';
+            loginError.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (loginError) {
+          loginError.textContent = `Erreur réseau : ${err.message}`;
+          loginError.style.display = 'block';
+        }
+      } finally {
+        btnLoginSubmit.disabled = false;
+        btnLoginSubmit.textContent = 'Se connecter';
+      }
+    });
+  }
+
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      try {
+        await fetch(apiUrl('/api/auth/logout'), { method: 'POST' });
+      } catch (e) {}
+      showLoginScreen();
+    });
+  }
+
+  // --- GESTION DES COMPTES COLLABORATEURS (ADMIN) ---
+
+  if (btnOpenUsers && modalUsers) {
+    btnOpenUsers.addEventListener('click', () => {
+      openModal(modalUsers);
+      loadUsersList();
+    });
+  }
+
+  async function loadUsersList() {
+    if (!usersTbody) return;
+    usersTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chargement des comptes...</td></tr>';
+    try {
+      const res = await fetch(apiUrl('/api/users'));
+      const data = await res.json();
+      if (!res.ok || !data.users) throw new Error(data.message || 'Erreur');
+
+      usersTbody.innerHTML = data.users.map(u => `
+        <tr>
+          <td><strong>${escapeHTML(u.name)}</strong></td>
+          <td>${escapeHTML(u.email)}</td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-danger' : 'badge-neutral'}">${u.role === 'admin' ? 'Administrateur' : 'Facturation'}</span></td>
+          <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '-'}</td>
+          <td>
+            ${u.email === (currentUser && currentUser.email) ? '<span class="text-muted"><small>Votre compte</small></span>' : `<button class="btn btn-ghost btn-sm text-danger" onclick="deleteUserAccount('${u.id}', '${escapeHTML(u.name)}')">Supprimer</button>`}
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      usersTbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${escapeHTML(err.message)}</td></tr>`;
+    }
+  }
+
+  window.deleteUserAccount = async function(userId, userName) {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le compte de ${userName} ?`)) return;
+    try {
+      const res = await fetch(apiUrl('/api/users/' + encodeURIComponent(userId)), { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        loadUsersList();
+      } else {
+        alert('Erreur : ' + (data.message || 'Impossible de supprimer cet utilisateur.'));
+      }
+    } catch (err) {
+      alert('Erreur réseau : ' + err.message);
+    }
+  };
+
+  if (formCreateUser) {
+    formCreateUser.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('new-user-name').value.trim();
+      const email = document.getElementById('new-user-email').value.trim();
+      const password = document.getElementById('new-user-password').value;
+      const role = document.getElementById('new-user-role').value;
+      const btnSubmit = document.getElementById('btn-submit-create-user');
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Création...';
+      if (userCreateStatus) userCreateStatus.style.display = 'none';
+
+      try {
+        const res = await fetch(apiUrl('/api/users'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, role })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          formCreateUser.reset();
+          if (userCreateStatus) {
+            userCreateStatus.className = 'alert alert-success';
+            userCreateStatus.textContent = `✓ Compte créé avec succès pour ${name} (${role === 'admin' ? 'Admin' : 'Facturation'})`;
+            userCreateStatus.style.display = 'block';
+          }
+          loadUsersList();
+        } else {
+          if (userCreateStatus) {
+            userCreateStatus.className = 'alert alert-danger';
+            userCreateStatus.textContent = data.message || 'Échec de la création du compte.';
+            userCreateStatus.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (userCreateStatus) {
+          userCreateStatus.className = 'alert alert-danger';
+          userCreateStatus.textContent = `Erreur réseau : ${err.message}`;
+          userCreateStatus.style.display = 'block';
+        }
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = "Créer l'accès";
+      }
+    });
+  }
+
+  // --- MODIFICATION DU MOT DE PASSE PERSONNEL ---
+
+  if (btnOpenPassword && modalPassword) {
+    btnOpenPassword.addEventListener('click', () => {
+      if (formChangePassword) formChangePassword.reset();
+      if (pwdChangeStatus) pwdChangeStatus.style.display = 'none';
+      openModal(modalPassword);
+    });
+  }
+
+  if (formChangePassword) {
+    formChangePassword.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const oldPassword = document.getElementById('pwd-old').value;
+      const newPassword = document.getElementById('pwd-new').value;
+      const btnSubmit = document.getElementById('btn-submit-pwd');
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Modification...';
+      if (pwdChangeStatus) pwdChangeStatus.style.display = 'none';
+
+      try {
+        const res = await fetch(apiUrl('/api/auth/change-password'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPassword, newPassword })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          if (pwdChangeStatus) {
+            pwdChangeStatus.className = 'alert alert-success';
+            pwdChangeStatus.textContent = '✓ Mot de passe modifié avec succès !';
+            pwdChangeStatus.style.display = 'block';
+          }
+          formChangePassword.reset();
+          setTimeout(() => closeModal(modalPassword), 1500);
+        } else {
+          if (pwdChangeStatus) {
+            pwdChangeStatus.className = 'alert alert-danger';
+            pwdChangeStatus.textContent = data.message || 'Erreur lors du changement de mot de passe.';
+            pwdChangeStatus.style.display = 'block';
+          }
+        }
+      } catch (err) {
+        if (pwdChangeStatus) {
+          pwdChangeStatus.className = 'alert alert-danger';
+          pwdChangeStatus.textContent = `Erreur réseau : ${err.message}`;
+          pwdChangeStatus.style.display = 'block';
+        }
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Mettre à jour mon mot de passe';
+      }
+    });
+  }
 
   // --- Gestionnaires d'événements ---
   btnRefresh.addEventListener('click', () => {

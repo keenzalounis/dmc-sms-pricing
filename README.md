@@ -39,6 +39,28 @@ npm.cmd run charts
 
 Sur Linux / VM Ubuntu, les commandes npm s'exécutent normalement avec `npm`.
 
+## Authentification et gestion des rôles
+
+L'application intègre une couche d'authentification native avec contrôle d'accès basé sur les rôles (RBAC) :
+
+* **Compte Administrateur initial :**
+  - Identifiant : `kenza.lounis@sfr.com`
+  - Mot de passe temporaire initial : `Admin@2026!` *(modifiable depuis l'icône 🔑 du tableau de bord)*
+* **Rôle `admin` (Kenza Lounis) :**
+  - Accès complet à la plateforme.
+  - Ingestion de fichiers CSV et relève de la boîte mail.
+  - Réinitialisation sécurisée de la base.
+  - Création, consultation et suppression des comptes collaborateurs via le bouton **👥 Comptes**.
+* **Rôle `billing` (Collaborateurs Facturation) :**
+  - Consultation des tarifs et recherche multi-critères.
+  - Visualisation des mini-courbes et des graphiques d'évolution par opérateur.
+  - Téléchargement du fichier **Export Facturation** avec application de la marge commerciale.
+  - Les boutons d'import et de réinitialisation sont masqués et interdits par l'API (HTTP 403).
+* **Sécurité :**
+  - Mots de passe hachés et salés via l'algorithme cryptographique `scrypt` (module natif Node.js `crypto`).
+  - Jetons de session aléatoires de 256 bits stockés en cookies sécurisés `HttpOnly; SameSite=Lax`.
+  - Le fichier des utilisateurs `data/users.json` est strictement exclu du suivi Git.
+
 ## Import et archives
 
 Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur vérifie les colonnes obligatoires et chaque ligne tarifaire avant toute modification. Si le format ou une ligne est invalide, le fichier entier est refusé pour éviter un import partiel ; une alerte est envoyée au destinataire configuré si SMTP est disponible, et le résultat de l'envoi est affiché. Un import valide archive l'ancien référentiel et conserve le CSV importé dans l'archive JSON.

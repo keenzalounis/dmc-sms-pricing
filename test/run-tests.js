@@ -38,14 +38,29 @@ const {
   decodeQuotedPrintable
 } = require('../src/mail_sync');
 
-// Sauvegarde de database.json avant les tests pour isolation
+const {
+  hashPassword,
+  verifyPassword,
+  loadUsers,
+  createUser,
+  deleteUser,
+  createSession,
+  getSession
+} = require('../src/auth');
+
+// Sauvegarde de database.json et users.json avant les tests pour isolation
 const dbPath = path.join(__dirname, '..', 'data', 'database.json');
+const usersPath = path.join(__dirname, '..', 'data', 'users.json');
 const archivesPath = path.join(__dirname, '..', 'data', 'archives');
 const archiveFilesBeforeTests = fs.existsSync(archivesPath) ? new Set(fs.readdirSync(archivesPath)) : new Set();
 
 let dbBackup = null;
 if (fs.existsSync(dbPath)) {
   dbBackup = fs.readFileSync(dbPath, 'utf-8');
+}
+let usersBackup = null;
+if (fs.existsSync(usersPath)) {
+  usersBackup = fs.readFileSync(usersPath, 'utf-8');
 }
 
 let testsPassed = 0;
@@ -527,6 +542,68 @@ async function runTests() {
     assert(delay <= 24 * 3600 * 1000, 'Le délai ne doit pas dépasser 24h');
   });
 
+  // 5. Module Sécurité, Authentification & Rôles
+  console.log('\n--- 5. Module Sécurité, Authentification & Rôles ---');
+
+  await it('Devrait hacher les mots de passe et vérifier avec timingSafeEqual', () => {
+    const raw = 'SecretPass123!';
+    const hash = hashPassword(raw);
+    assert.strictEqual(verifyPassword(raw, hash), true);
+    assert.strictEqual(verifyPassword('WrongPassword', hash), false);
+    assert.strictEqual(verifyPassword('', hash), false);
+  });
+
+  await it('Devrait initialiser l\'administrateur par défaut Kenza Lounis', () => {
+    const users = loadUsers();
+    assert(users.length >= 1, 'Au moins un compte utilisateur doit exister');
+    const admin = users.find(u => u.role === 'admin');
+    assert(admin, 'Un compte administrateur doit être présent');
+    assert.strictEqual(admin.email, 'kenza.lounis@sfr.com');
+  });
+
+  await it('Devrait créer un collaborateur avec le rôle facturation et refuser les doublons', () => {
+    const newUser = createUser({
+      email: 'test.collegue@sfr.com',
+      name: 'Collègue Test',
+      password: 'ColleaguePass2026!',
+      role: 'billing'
+    });
+    assert.strictEqual(newUser.role, 'billing');
+    assert.strictEqual(newUser.email, 'test.collegue@sfr.com');
+
+    // Refus doublon
+    assert.throws(() => {
+      createUser({
+        email: 'test.collegue@sfr.com',
+        name: 'Autre Nom',
+        password: 'PassWord123',
+        role: 'billing'
+      });
+    }, /existe déjà/);
+
+    // Nettoyage
+    deleteUser(newUser.id);
+  });
+
+  await it('Devrait générer et valider des jetons de session cryptographiques', () => {
+    const mockUser = { id: 'u123', email: 'test@sfr.com', name: 'Test', role: 'billing' };
+    const session = createSession(mockUser);
+    assert(session.token && session.token.length === 64, 'Le jeton doit comporter 64 caractères hexadécimaux');
+    const retrieved = getSession(session.token);
+    assert(retrieved, 'La session doit être valide');
+    assert.strictEqual(retrieved.email, 'test@sfr.com');
+  });
+
+  await it('Devrait empêcher la suppression du seul compte administrateur', () => {
+    const users = loadUsers();
+    const admin = users.find(u => u.role === 'admin');
+    assert(admin);
+    const admins = users.filter(u => u.role === 'admin');
+    if (admins.length === 1) {
+      assert.throws(() => deleteUser(admin.id), /seul compte administrateur/);
+    }
+  });
+
   console.log('\n========================================');
   console.log(`Résultats : ${testsPassed} passés, ${testsFailed} échoués`);
   console.log('========================================\n');
@@ -534,6 +611,11 @@ async function runTests() {
   // Restauration de database.json et nettoyage des archives de test
   if (dbBackup !== null) {
     fs.writeFileSync(dbPath, dbBackup, 'utf-8');
+  }
+  if (usersBackup !== null) {
+    fs.writeFileSync(usersPath, usersBackup, 'utf-8');
+  } else if (fs.existsSync(usersPath)) {
+    fs.unlinkSync(usersPath);
   }
   if (fs.existsSync(archivesPath)) {
     for (const filename of fs.readdirSync(archivesPath)) {

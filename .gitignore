@@ -6,6 +6,8 @@ node_modules/
 .env.local
 data/sinch_config.json
 data/mail_config.json
+data/users.json
+data/sessions.json
 *.tmp
 data/archives/
 
