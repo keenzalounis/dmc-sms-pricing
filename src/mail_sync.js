@@ -174,6 +174,7 @@ function extractAttachmentsRecursive(mimeBlock, attachments = []) {
         filename: finalFilename,
         isCSV,
         contentType,
+        disposition,
         content: decodedContent
       });
     }
@@ -188,6 +189,27 @@ function extractAttachmentsRecursive(mimeBlock, attachments = []) {
 function extractCSVAttachments(rawMessage) {
   const all = extractAttachmentsRecursive(rawMessage, []);
   return all.filter(a => a.isCSV);
+}
+
+/**
+ * Détecte les images embarquées de signature d'e-mail (logos Outlook, icônes réseaux sociaux, bannières).
+ * Ces images ne sont pas des pièces jointes de données et doivent être ignorées pour éviter les fausses alertes.
+ */
+function isSignatureOrInlineImage(filename, contentType, disposition) {
+  const normFn = (filename || '').toLowerCase().trim();
+  const normType = (contentType || '').toLowerCase().trim();
+  const normDisp = (disposition || '').toLowerCase().trim();
+
+  // 1. Détection par nom généré automatiquement par Outlook / Exchange / Apple Mail (ex: image001.png)
+  if (/^image\d{3,}\.(png|jpg|jpeg|gif|bmp)$/i.test(normFn)) return true;
+  if (/^(logo|signature|banner|footer|icon|bullet|avatar)\w*\.(png|jpg|jpeg|gif|svg)$/i.test(normFn)) return true;
+
+  // 2. Détection des images déclarées "inline" dans les en-têtes MIME
+  if (normDisp.includes('inline') && (normType.startsWith('image/') || /\.(png|jpg|jpeg|gif|svg|ico)$/i.test(normFn))) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -616,6 +638,11 @@ async function syncMailbox() {
         const csvAttachments = allAttachments.filter(a => a.isCSV);
         const nonCsvAttachments = allAttachments.filter(a => !a.isCSV);
 
+        // Filtrer les pièces en excluant les images de signature / logos inline (ex: image001.png)
+        const relevantNonCsv = nonCsvAttachments.filter(a =>
+          !isSignatureOrInlineImage(a.filename, a.contentType, a.disposition)
+        );
+
         if (allAttachments.length === 0) {
           console.warn(`[ALERTE] Aucune pièce jointe dans le message #${id}`);
           await reportRejection({
@@ -632,21 +659,34 @@ async function syncMailbox() {
           continue;
         }
 
-        if (nonCsvAttachments.length > 0) {
-          const names = nonCsvAttachments.map(a => a.filename).join(', ');
-          console.warn(`[ALERTE] Pièce jointe non CSV détectée pour #${id} : ${names}`);
-          await reportRejection({
-            type: 'ATTACHMENT_NOT_CSV',
-            reason: `La pièce jointe reçue n'est pas un fichier CSV. Fichier(s) reçu(s) : ${names}`,
-            sender: from,
-            subject,
-            attachmentName: names
-          }, {
-            status: `Rejeté (Format non CSV : ${names})`
-          });
-        }
-
+        // Si aucun fichier CSV de tarifs n'est trouvé
         if (csvAttachments.length === 0) {
+          if (relevantNonCsv.length > 0) {
+            // Un vrai fichier documentaire non-CSV a été attaché (ex: PriceChangeNotification.xlsx ou document.pdf)
+            const names = relevantNonCsv.map(a => a.filename).join(', ');
+            console.warn(`[ALERTE] Fichier non CSV détecté pour #${id} : ${names}`);
+            await reportRejection({
+              type: 'ATTACHMENT_NOT_CSV',
+              reason: `Le fichier reçu n'est pas un fichier CSV. Fichier(s) reçu(s) : ${names}. La plateforme exige le format .csv.`,
+              sender: from,
+              subject,
+              attachmentName: names
+            }, {
+              status: `Rejeté (Format non CSV : ${names})`
+            });
+          } else {
+            // Aucun fichier de tarif attaché (seulement du texte ou des images de signature email)
+            console.warn(`[ALERTE] Aucun fichier CSV attaché dans le message #${id}`);
+            await reportRejection({
+              type: 'ATTACHMENT_NOT_CSV',
+              reason: 'Le courriel de notification a été reçu sans aucun fichier CSV de tarifs attaché.',
+              sender: from,
+              subject
+            }, {
+              status: 'Rejeté (Aucun fichier CSV attaché)'
+            });
+          }
+
           if (config.markAsRead && messageHandled && messageAlertsDelivered) {
             await client.sendCommand(`STORE ${id} +FLAGS (\\Seen)`);
           }
