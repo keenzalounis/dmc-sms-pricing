@@ -677,8 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <td style="white-space: nowrap;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 ${generateSparklineSVG(r.history, r.currentPrice, r.priceChange, r.id)}
-                <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Ouvrir le graphique Python et l'historique de ce tarif">
-                  Graphique Python
+                <button class="btn btn-ghost btn-sm" onclick="showHistory('${r.id}')" title="Ouvrir le graphique et l'historique de ce tarif">
+                  Graphique
                 </button>
               </div>
             </td>
@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const history = data.history || [];
       chartPointsCount.textContent = `${history.length} point${history.length === 1 ? '' : 's'}`;
       chartPointsCount.className = history.length > 1 ? 'badge badge-success' : 'badge badge-neutral';
-      chartLegendInfo.textContent = 'Génération du graphique Python...';
+      chartLegendInfo.textContent = 'Génération du graphique...';
       operatorPriceChart.onerror = () => {
         chartLegendInfo.textContent = 'Graphique indisponible : vérifiez Python 3 et les dépendances de requirements.txt.';
       };
