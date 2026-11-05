@@ -170,8 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${archive.totalDestinations}</td>
           <td style="white-space: nowrap;">
             <a class="btn btn-ghost btn-sm" href="${apiUrl('/api/archives/' + encodeURIComponent(archive.filename))}" download title="Télécharger cette archive">Télécharger</a>
-            <button class="btn btn-ghost btn-sm" onclick="restoreArchive('${escapeHTML(archive.filename)}')" title="Restaurer ce référentiel, en sauvegardant l'état actuel">Restaurer</button>
-            <button class="btn btn-ghost btn-sm" style="color: #DC2626;" onclick="deleteArchive('${escapeHTML(archive.filename)}')" title="Supprimer uniquement cette archive">🗑️ Supprimer</button>
           </td>
         </tr>
       `).join('');
@@ -623,41 +621,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Réinitialisation sécurisée protégée par le code PIN 2026
-  const modalPinReset = document.getElementById('modal-pin-reset');
+  // Réinitialisation de la plateforme au catalogue officiel de base (0 hausse)
   const btnResetBase = document.getElementById('btn-reset-base');
-  const btnConfirmPinReset = document.getElementById('btn-confirm-pin-reset');
-  const inputPinReset = document.getElementById('input-pin-reset');
-  const pinResetError = document.getElementById('pin-reset-error');
+  if (btnResetBase) {
+    btnResetBase.addEventListener('click', async () => {
+      const confirmed = confirm(
+        "⚠️ AVERTISSEMENT : Risque d'écrasement des données !\n\n" +
+        "Cette action va effacer les fichiers de test importés et restaurer la plateforme au catalogue officiel Sinch initial (913 destinations d'origine, 0 hausse).\n\n" +
+        "Voulez-vous vraiment continuer et réinitialiser la plateforme ?"
+      );
+      if (!confirmed) return;
 
-  if (btnResetBase && modalPinReset) {
-    btnResetBase.addEventListener('click', () => {
-      if (inputPinReset) inputPinReset.value = '';
-      if (pinResetError) pinResetError.style.display = 'none';
-      openModal(modalPinReset);
-      if (inputPinReset) inputPinReset.focus();
-    });
-  }
-
-  if (btnConfirmPinReset) {
-    btnConfirmPinReset.addEventListener('click', async () => {
-      const code = inputPinReset ? inputPinReset.value.trim() : '';
-      if (pinResetError) pinResetError.style.display = 'none';
-
-      if (code !== '2026') {
-        if (pinResetError) {
-          pinResetError.textContent = 'Code de sécurité incorrect. Veuillez saisir 2026 pour confirmer.';
-          pinResetError.style.display = 'block';
-        }
-        if (inputPinReset) {
-          inputPinReset.value = '';
-          inputPinReset.focus();
-        }
-        return;
-      }
-
-      btnConfirmPinReset.disabled = true;
-      btnConfirmPinReset.textContent = 'Réinitialisation en cours...';
+      btnResetBase.disabled = true;
+      btnResetBase.textContent = 'Réinitialisation en cours...';
 
       try {
         const res = await fetch(apiUrl('/api/reset-base'), {
@@ -667,72 +643,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          closeModal(modalPinReset);
           closeModal(modalArchives);
           loadKPIs();
           loadPrices();
           loadArchives();
-          alert('✓ Réinitialisation réussie ! La plateforme est revenue au catalogue officiel Sinch (913 destinations, 0 hausse).');
+          alert('✓ Réinitialisation réussie ! La plateforme est revenue au catalogue de base officiel (913 destinations, 0 hausse).');
         } else {
-          if (pinResetError) {
-            pinResetError.textContent = data.message || 'Erreur lors de la réinitialisation.';
-            pinResetError.style.display = 'block';
-          }
+          alert('Erreur lors de la réinitialisation : ' + (data.message || 'Échec'));
         }
       } catch (err) {
-        if (pinResetError) {
-          pinResetError.textContent = `Erreur réseau : ${err.message}`;
-          pinResetError.style.display = 'block';
-        }
+        alert('Erreur réseau : ' + err.message);
       } finally {
-        btnConfirmPinReset.disabled = false;
-        btnConfirmPinReset.textContent = 'Confirmer et Réinitialiser';
+        btnResetBase.disabled = false;
+        btnResetBase.textContent = '⚠️ ↺ Réinitialiser au catalogue de base (Remise à 0)';
       }
     });
   }
-
-  // Suppression d'une archive
-  window.deleteArchive = async function(filename) {
-    if (!confirm(`Supprimer définitivement cette archive ? Les tarifs actuellement actifs ne seront pas modifiés.\n\nFichier : ${filename}`)) {
-      return;
-    }
-    try {
-      const res = await fetch(apiUrl('/api/archives/' + encodeURIComponent(filename)), {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        loadArchives();
-      } else {
-        alert('Erreur : ' + (data.message || 'Impossible de supprimer cette archive.'));
-      }
-    } catch (err) {
-      alert('Erreur réseau lors de la suppression : ' + err.message);
-    }
-  };
-
-  window.restoreArchive = async function(filename) {
-    if (!confirm(`Restaurer ce référentiel ?\n\nLes tarifs actifs seront remplacés par ceux de l'archive. L'état actuel sera sauvegardé dans une nouvelle archive.\n\nFichier : ${filename}`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(apiUrl('/api/archives/' + encodeURIComponent(filename) + '/restore'), {
-        method: 'POST'
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        loadKPIs();
-        loadPrices(searchInput.value);
-        loadArchives();
-        alert(`Référentiel restauré : ${data.details.totalDestinations} destinations. L'état précédent a été archivé.`);
-      } else {
-        alert('Erreur : ' + (data.message || 'Impossible de restaurer cette archive.'));
-      }
-    } catch (err) {
-      alert('Erreur réseau lors de la restauration : ' + err.message);
-    }
-  };
 
   function escapeHTML(str) {
     if (!str) return '';

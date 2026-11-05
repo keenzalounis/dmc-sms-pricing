@@ -43,7 +43,7 @@ Sur Linux / VM Ubuntu, les commandes npm s'exécutent normalement avec `npm`.
 
 Dans le tableau de bord, choisir **Mettre à jour les tarifs**, sélectionner le CSV Sinch puis lancer l'ingestion. Le serveur vérifie les colonnes obligatoires et chaque ligne tarifaire avant toute modification. Si le format ou une ligne est invalide, le fichier entier est refusé pour éviter un import partiel ; une alerte est envoyée au destinataire configuré si SMTP est disponible, et le résultat de l'envoi est affiché. Un import valide archive l'ancien référentiel et conserve le CSV importé dans l'archive JSON.
 
-Dans **Historique des versions**, le nombre de lignes tarifaires du CSV est distinct du nombre de destinations sauvegardées avant import. Une restauration est une action explicite qui sauvegarde d'abord le référentiel actif dans une nouvelle archive. Supprimer une archive ne modifie pas les tarifs actifs.
+Dans **Historique des versions**, chaque archive est consultable et téléchargeable via le bouton **Télécharger**. Pour remettre la plateforme à son état initial après une série d'essais ou un import de test, le bouton **« ⚠️ ↺ Réinitialiser au catalogue de base (Remise à 0) »** réaligne la base sur le catalogue officiel Sinch de 913 destinations, remet le compteur de hausses à 0 et vide les archives de test. En cas d'appel API direct (`POST /api/reset-base`), le code de sécurité requis est **`2026`**.
 
 Les archives et la base active sont enregistrées sous `data/`. Il faut donc inclure ce dossier dans les sauvegardes de la VM et éviter de le remplacer lors d'un déploiement.
 
