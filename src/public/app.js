@@ -32,10 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const userDisplayName = document.getElementById('user-display-name');
   const userDisplayRole = document.getElementById('user-display-role');
   const btnLogout = document.getElementById('btn-logout');
-  const btnOpenUsers = document.getElementById('btn-open-users');
-  const btnOpenPassword = document.getElementById('btn-open-password');
-  const modalUsers = document.getElementById('modal-users');
-  const modalPassword = document.getElementById('modal-password');
+  const btnOpenAccount = document.getElementById('btn-open-account');
+  const modalAccount = document.getElementById('modal-account');
+  const usersCountBadge = document.getElementById('users-count-badge');
+  const profileUserName = document.getElementById('profile-user-name');
+  const profileUserEmail = document.getElementById('profile-user-email');
+  const profileUserRole = document.getElementById('profile-user-role');
+  const profileUserPerms = document.getElementById('profile-user-perms');
   const usersTbody = document.getElementById('users-tbody');
   const formCreateUser = document.getElementById('form-create-user');
   const userCreateStatus = document.getElementById('user-create-status');
@@ -123,6 +126,11 @@ document.addEventListener('DOMContentLoaded', () => {
       userDisplayRole.className = user.role === 'admin' ? 'badge badge-danger' : 'badge badge-neutral';
     }
 
+    if (profileUserName) profileUserName.textContent = user.name || '-';
+    if (profileUserEmail) profileUserEmail.textContent = user.email || '-';
+    if (profileUserRole) profileUserRole.textContent = user.role === 'admin' ? 'Administrateur (Accès total)' : 'Facturation (Consultation & Export)';
+    if (profileUserPerms) profileUserPerms.textContent = user.role === 'admin' ? 'Accès complet (Gestion tarifs, relève mail, gestion comptes)' : 'Consultation, recherche et export facturation';
+
     // Gestion des droits selon le rôle (Admin vs Facturation)
     document.querySelectorAll('.admin-only').forEach(el => {
       el.style.display = user.role === 'admin' ? '' : 'none';
@@ -131,6 +139,42 @@ document.addEventListener('DOMContentLoaded', () => {
     loadKPIs();
     loadPrices();
   }
+
+  function switchAccountTab(tabId) {
+    document.querySelectorAll('.account-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+    });
+    document.querySelectorAll('.account-tab-pane').forEach(pane => {
+      pane.style.display = pane.id === tabId ? 'block' : 'none';
+    });
+  }
+
+  if (btnOpenAccount && modalAccount) {
+    btnOpenAccount.addEventListener('click', () => {
+      if (userCreateStatus) userCreateStatus.style.display = 'none';
+      if (pwdChangeStatus) pwdChangeStatus.style.display = 'none';
+      if (formCreateUser) formCreateUser.reset();
+      if (formChangePassword) formChangePassword.reset();
+
+      openModal(modalAccount);
+      if (currentUser && currentUser.role === 'admin') {
+        switchAccountTab('pane-users-list');
+        loadUsersList();
+      } else {
+        switchAccountTab('pane-profile');
+      }
+    });
+  }
+
+  document.querySelectorAll('.account-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.getAttribute('data-tab');
+      switchAccountTab(targetTab);
+      if (targetTab === 'pane-users-list') {
+        loadUsersList();
+      }
+    });
+  });
 
   if (formLogin) {
     formLogin.addEventListener('submit', async (e) => {
@@ -181,13 +225,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- GESTION DES COMPTES COLLABORATEURS (ADMIN) ---
 
-  if (btnOpenUsers && modalUsers) {
-    btnOpenUsers.addEventListener('click', () => {
-      openModal(modalUsers);
-      loadUsersList();
-    });
-  }
-
   async function loadUsersList() {
     if (!usersTbody) return;
     usersTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chargement des comptes...</td></tr>';
@@ -195,6 +232,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(apiUrl('/api/users'));
       const data = await res.json();
       if (!res.ok || !data.users) throw new Error(data.message || 'Erreur');
+
+      if (usersCountBadge && data.users) {
+        usersCountBadge.textContent = `${data.users.length} compte${data.users.length > 1 ? 's' : ''}`;
+      }
 
       usersTbody.innerHTML = data.users.map(u => `
         <tr>
@@ -277,14 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- MODIFICATION DU MOT DE PASSE PERSONNEL ---
 
-  if (btnOpenPassword && modalPassword) {
-    btnOpenPassword.addEventListener('click', () => {
-      if (formChangePassword) formChangePassword.reset();
-      if (pwdChangeStatus) pwdChangeStatus.style.display = 'none';
-      openModal(modalPassword);
-    });
-  }
-
   if (formChangePassword) {
     formChangePassword.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -310,7 +343,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pwdChangeStatus.style.display = 'block';
           }
           formChangePassword.reset();
-          setTimeout(() => closeModal(modalPassword), 1500);
+          setTimeout(() => {
+            if (modalAccount) closeModal(modalAccount);
+          }, 1500);
         } else {
           if (pwdChangeStatus) {
             pwdChangeStatus.className = 'alert alert-danger';

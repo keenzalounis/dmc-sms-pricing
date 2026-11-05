@@ -64,19 +64,16 @@
             Export Facturation
           </button>
 
-          <!-- Profil utilisateur et Déconnexion -->
-          <div class="user-menu-box" style="display: flex; align-items: center; gap: 8px; margin-left: 6px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.2);">
-            <div style="display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2;">
-              <span id="user-display-name" style="font-size: 13px; font-weight: 600; color: #FFFFFF;">Utilisateur</span>
-              <span id="user-display-role" class="badge" style="font-size: 10px; padding: 1px 6px;">Rôle</span>
-            </div>
-            <button id="btn-open-users" class="btn btn-secondary btn-sm admin-only" title="Gérer les comptes collaborateurs" style="font-size: 12px; padding: 5px 9px;">
-              👥 Comptes
+          <!-- Profil utilisateur unifié et Déconnexion -->
+          <div class="user-menu-box" style="display: flex; align-items: center; gap: 8px; margin-left: 8px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,0.2);">
+            <button id="btn-open-account" class="btn btn-secondary btn-sm" title="Ouvrir mon compte et les accès" style="display: flex; align-items: center; gap: 7px; padding: 5px 10px;">
+              <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15;">
+                <span id="user-display-name" style="font-size: 12px; font-weight: 600; color: #FFFFFF;">Utilisateur</span>
+                <span id="user-display-role" class="badge" style="font-size: 9px; padding: 1px 5px; margin-top: 1px;">Rôle</span>
+              </span>
+              <span style="font-size: 12px; opacity: 0.85;">⚙️</span>
             </button>
-            <button id="btn-open-password" class="btn btn-ghost btn-sm" title="Modifier mon mot de passe" style="font-size: 12px; padding: 5px 8px; color: #E2E8F0;">
-              🔑
-            </button>
-            <button id="btn-logout" class="btn btn-ghost btn-sm" title="Se déconnecter" style="font-size: 12px; padding: 5px 8px; color: #FECACA;">
+            <button id="btn-logout" class="btn btn-ghost btn-sm" title="Se déconnecter" style="font-size: 12px; padding: 6px 10px; color: #FECACA;">
               🚪
             </button>
           </div>
@@ -302,52 +299,39 @@
     </div>
   </div>
 
-  <!-- MODAL GESTION DES COLLABORATEURS (ADMIN) -->
-  <div id="modal-users" class="modal">
+  <!-- MODAL UNIFIÉ DU COMPTE & UTILISATEURS (AVEC RUBRIQUES) -->
+  <div id="modal-account" class="modal">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
         <div>
-          <h3>👥 Gestion des accès & collaborateurs</h3>
-          <span class="subtitle">Création et gestion des comptes utilisateurs SFR Business</span>
+          <h3>⚙️ Mon Compte & Collaborateurs</h3>
+          <span class="subtitle">Paramètres de sécurité, accès d'équipe et profil personnel</span>
         </div>
-        <button class="modal-close" data-close="modal-users">&times;</button>
+        <button class="modal-close" data-close="modal-account">&times;</button>
       </div>
-      <div class="modal-body">
-        <!-- Formulaire d'ajout d'un collaborateur -->
-        <div style="background: #FAFBFD; border: 1px solid var(--border-color); border-radius: 8px; padding: 18px; margin-bottom: 20px;">
-          <h4 style="margin: 0 0 12px 0; font-size: 14px;">➕ Ajouter un collaborateur</h4>
-          <div id="user-create-status" class="alert" style="display:none; font-size: 12px; margin-bottom: 12px;"></div>
-          <form id="form-create-user" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: flex-end;">
-            <div class="form-group">
-              <label for="new-user-name" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Nom complet :</label>
-              <input type="text" id="new-user-name" placeholder="Ex: Gabriel Dupont" required style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
-            </div>
-            <div class="form-group">
-              <label for="new-user-email" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Adresse e-mail :</label>
-              <input type="email" id="new-user-email" placeholder="prenom.nom@sfr.com" required style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
-            </div>
-            <div class="form-group">
-              <label for="new-user-password" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Mot de passe temporaire :</label>
-              <input type="password" id="new-user-password" placeholder="Min. 6 caractères" required style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
-            </div>
-            <div class="form-group">
-              <label for="new-user-role" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Rôle attribué :</label>
-              <select id="new-user-role" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; background: #FFF;">
-                <option value="billing">Facturation (Consultation & Export)</option>
-                <option value="admin">Administrateur (Accès total)</option>
-              </select>
-            </div>
-            <div>
-              <button type="submit" id="btn-submit-create-user" class="btn btn-primary btn-sm" style="height: 36px; width: 100%; justify-content: center;">
-                Créer l'accès
-              </button>
-            </div>
-          </form>
+      <div class="modal-body" style="padding-top: 14px;">
+        <!-- Navigation par rubriques (Onglets) -->
+        <div class="account-tabs-nav" style="display: flex; border-bottom: 2px solid #E2E8F0; gap: 4px; margin-bottom: 18px; flex-wrap: wrap;">
+          <button type="button" class="account-tab-btn active" data-tab="pane-users-list">
+            👥 Collaborateurs
+          </button>
+          <button type="button" class="account-tab-btn admin-only" data-tab="pane-users-create">
+            ➕ Ajouter un accès
+          </button>
+          <button type="button" class="account-tab-btn" data-tab="pane-password">
+            🔑 Mot de passe & Sécurité
+          </button>
+          <button type="button" class="account-tab-btn" data-tab="pane-profile">
+            ℹ️ Mes informations
+          </button>
         </div>
 
-        <!-- Liste des utilisateurs actuels -->
-        <div>
-          <h4 style="margin: 0 0 10px 0; font-size: 14px;">Comptes actifs sur la plateforme :</h4>
+        <!-- Rubrique 1 : Liste des collaborateurs -->
+        <div id="pane-users-list" class="account-tab-pane active">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="margin: 0; font-size: 14px;">Comptes actifs sur la plateforme :</h4>
+            <span id="users-count-badge" class="badge badge-neutral" style="font-size: 11px;">1 compte</span>
+          </div>
           <div class="table-responsive">
             <table class="data-table small">
               <thead>
@@ -365,38 +349,97 @@
             </table>
           </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" data-close="modal-users">Fermer</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- MODAL CHANGER MOT DE PASSE -->
-  <div id="modal-password" class="modal">
-    <div class="modal-dialog" style="max-width: 440px;">
-      <div class="modal-header">
-        <h3>🔑 Modifier mon mot de passe</h3>
-        <button class="modal-close" data-close="modal-password">&times;</button>
-      </div>
-      <div class="modal-body" style="padding: 20px;">
-        <div id="pwd-change-status" class="alert" style="display:none; font-size: 12px; margin-bottom: 14px;"></div>
-        <form id="form-change-password">
-          <div class="form-group" style="margin-bottom: 14px;">
-            <label for="pwd-old" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Ancien mot de passe :</label>
-            <input type="password" id="pwd-old" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+        <!-- Rubrique 2 : Formulaire d'ajout d'un collaborateur -->
+        <div id="pane-users-create" class="account-tab-pane admin-only" style="display: none;">
+          <div style="background: #FAFBFD; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;">
+            <h4 style="margin: 0 0 14px 0; font-size: 14px; color: var(--text-primary);">➕ Créer un nouvel accès collaborateur</h4>
+            <div id="user-create-status" class="alert" style="display:none; font-size: 12px; margin-bottom: 14px;"></div>
+            <form id="form-create-user">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                <div class="form-group">
+                  <label for="new-user-name" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Nom complet :</label>
+                  <input type="text" id="new-user-name" placeholder="Ex: Gabriel Dupont" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+                </div>
+                <div class="form-group">
+                  <label for="new-user-email" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Adresse e-mail :</label>
+                  <input type="email" id="new-user-email" placeholder="prenom.nom@sfr.com" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+                </div>
+                <div class="form-group">
+                  <label for="new-user-password" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Mot de passe temporaire :</label>
+                  <input type="password" id="new-user-password" placeholder="Min. 6 caractères" required minlength="6" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+                </div>
+                <div class="form-group">
+                  <label for="new-user-role" style="font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px;">Rôle attribué :</label>
+                  <select id="new-user-role" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; background: #FFF;">
+                    <option value="billing">Facturation (Consultation & Export)</option>
+                    <option value="admin">Administrateur (Accès total)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" id="btn-submit-create-user" class="btn btn-primary" style="padding: 10px 20px;">
+                  Créer l'accès collaborateur
+                </button>
+              </div>
+            </form>
           </div>
-          <div class="form-group" style="margin-bottom: 20px;">
-            <label for="pwd-new" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px;">Nouveau mot de passe (min. 6 car.) :</label>
-            <input type="password" id="pwd-new" required minlength="6" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+        </div>
+
+        <!-- Rubrique 3 : Changer mot de passe -->
+        <div id="pane-password" class="account-tab-pane" style="display: none;">
+          <div style="max-width: 440px; margin: 0 auto; background: #FAFBFD; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;">
+            <h4 style="margin: 0 0 14px 0; font-size: 14px;">🔑 Modifier mon mot de passe</h4>
+            <div id="pwd-change-status" class="alert" style="display:none; font-size: 12px; margin-bottom: 14px;"></div>
+            <form id="form-change-password">
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label for="pwd-old" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">Ancien mot de passe :</label>
+                <input type="password" id="pwd-old" required style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+              </div>
+              <div class="form-group" style="margin-bottom: 18px;">
+                <label for="pwd-new" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">Nouveau mot de passe (min. 6 car.) :</label>
+                <input type="password" id="pwd-new" required minlength="6" style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;">
+              </div>
+              <button type="submit" id="btn-submit-pwd" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+                Mettre à jour mon mot de passe
+              </button>
+            </form>
           </div>
-          <button type="submit" id="btn-submit-pwd" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
-            Mettre à jour mon mot de passe
-          </button>
-        </form>
+        </div>
+
+        <!-- Rubrique 4 : Mon profil & Informations -->
+        <div id="pane-profile" class="account-tab-pane" style="display: none;">
+          <div style="background: #FAFBFD; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px;">
+            <h4 style="margin: 0 0 14px 0; font-size: 14px;">ℹ️ Informations sur votre compte</h4>
+            <table class="data-table small" style="background: #FFFFFF;">
+              <tbody>
+                <tr>
+                  <td style="width: 150px; font-weight: 600;">Nom complet</td>
+                  <td id="profile-user-name">-</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Adresse e-mail</td>
+                  <td id="profile-user-email">-</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Rôle sur la plateforme</td>
+                  <td id="profile-user-role">-</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Niveau d'accès</td>
+                  <td id="profile-user-perms">-</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: 600;">Sécurité session</td>
+                  <td><span class="badge badge-success">Session chiffrée active (7 jours)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" data-close="modal-password">Annuler</button>
+        <button class="btn btn-ghost" data-close="modal-account">Fermer</button>
       </div>
     </div>
   </div>
