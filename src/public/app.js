@@ -950,9 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const res = await fetch(apiUrl('/api/reset-base'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: '2026' })
+          method: 'POST'
         });
         const data = await res.json();
         if (res.ok && data.success) {

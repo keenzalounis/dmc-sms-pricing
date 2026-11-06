@@ -5,11 +5,13 @@
  * Fonctionne immédiatement sous Windows et sur la VM Ubuntu.
  */
 
+// Modules natifs Node.js
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 
+// Moteur de tarification et persistance
 const {
   loadDatabase,
   listDatabaseArchives,
@@ -18,14 +20,22 @@ const {
   restoreDatabaseArchive,
   resetToBaseCatalog
 } = require('./ingest');
+
+// Validation et ingestion sécurisée des téléversements manuels
 const { ingestManualCSV } = require('./manual_upload');
+
+// Moteur d'export facturation Excel avec marge
 const { getBillingData, toCSV } = require('./export');
+
+// Connecteur de relève automatique IMAP
 const {
   loadMailConfig,
   syncMailbox,
   initNightlySyncScheduler,
   calculateMsUntilNextSchedule
 } = require('./mail_sync');
+
+// Module d'authentification, sessions et contrôle d'accès RBAC
 const {
   verifyPassword,
   findUserByEmail,
@@ -39,6 +49,7 @@ const {
   authenticateRequest
 } = require('./auth');
 
+// Configuration du serveur
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -101,7 +112,7 @@ const server = http.createServer((req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   let pathname = reqUrl.pathname;
 
-  // Normaliser le chemin en retirant un prefixe eventuel de reverse proxy (/dmc)
+  // Normalisation du préfixe éventuel du reverse proxy Nginx (/dmc)
   if (pathname.startsWith('/dmc/')) {
     pathname = pathname.slice(4);
   } else if (pathname === '/dmc') {
@@ -111,7 +122,7 @@ const server = http.createServer((req, res) => {
   const query = Object.fromEntries(reqUrl.searchParams.entries());
   const method = req.method.toUpperCase();
 
-  // CORS headers
+  // En-têtes CORS pour intégration navigateur
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -123,9 +134,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- ROUTES D'AUTHENTIFICATION PUBLIQUES ---
+  // =========================================================================
+  // SECTION 1 : AUTHENTIFICATION PUBLIQUE (Sans session préalable)
+  // =========================================================================
 
-  // A. POST /api/auth/login : Connexion
+  // 1.1 POST /api/auth/login : Connexion utilisateur
   if (pathname === '/api/auth/login' && method === 'POST') {
     readJSONBody(req).then(({ email, password }) => {
       if (!email || !password) {
@@ -150,7 +163,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // B. GET /api/auth/me : Vérifier la session active
+  // 1.2 GET /api/auth/me : Vérification de la session active
   if (pathname === '/api/auth/me' && method === 'GET') {
     const auth = authenticateRequest(req);
     if (!auth.authenticated) {
@@ -169,7 +182,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // C. POST /api/auth/logout : Déconnexion
+  // 1.3 POST /api/auth/logout : Déconnexion
   if (pathname === '/api/auth/logout' && method === 'POST') {
     const auth = authenticateRequest(req);
     if (auth.authenticated && auth.user && auth.user.token) {
@@ -183,7 +196,9 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- CONTRÔLE D'ACCÈS POUR LES ROUTES D'API PROTÉGÉES ---
+  // =========================================================================
+  // CONTRÔLE D'ACCÈS RBAC : Toutes les autres routes /api/ sont protégées
+  // =========================================================================
   if (pathname.startsWith('/api/')) {
     const auth = authenticateRequest(req);
     if (!auth.authenticated) {
@@ -192,21 +207,26 @@ const server = http.createServer((req, res) => {
     }
     req.user = auth.user;
 
-    // Protection des routes d'administration : rôle admin requis
-    const ADMIN_ONLY_PREFIXES = [
-      '/api/upload',
-      '/api/reset-base',
-      '/api/mail/sync',
-      '/api/users'
-    ];
-    const needsAdmin = ADMIN_ONLY_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'));
-    if (needsAdmin && req.user.role !== 'admin') {
+    // Actions strictement réservées au rôle 'admin'
+    const isAdminMutation = (
+      pathname.startsWith('/api/upload') ||
+      pathname.startsWith('/api/reset-base') ||
+      pathname.startsWith('/api/mail/sync') ||
+      pathname.startsWith('/api/users') ||
+      (pathname.startsWith('/api/archives/') && (method === 'DELETE' || method === 'POST'))
+    );
+
+    if (isAdminMutation && req.user.role !== 'admin') {
       sendError(res, 403, 'Accès refusé : cette action est réservée à l\'administrateur.');
       return;
     }
   }
 
-  // D. GET /api/users : Liste des utilisateurs (Admin)
+  // =========================================================================
+  // SECTION 2 : GESTION DES UTILISATEURS & PROFILS
+  // =========================================================================
+
+  // 2.1 GET /api/users : Liste des collaborateurs (Admin uniquement)
   if (pathname === '/api/users' && method === 'GET') {
     const users = loadUsers().map(u => ({
       id: u.id,
@@ -219,7 +239,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // E. POST /api/users : Créer un nouvel utilisateur (Admin)
+  // 2.2 POST /api/users : Création d'un collaborateur (Admin uniquement)
   if (pathname === '/api/users' && method === 'POST') {
     readJSONBody(req).then(({ email, name, password, role }) => {
       try {
@@ -232,7 +252,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // F. DELETE /api/users/:id : Supprimer un utilisateur (Admin)
+  // 2.3 DELETE /api/users/:id : Suppression d'un utilisateur (Admin uniquement)
   if (pathname.startsWith('/api/users/') && method === 'DELETE') {
     const userId = decodeURIComponent(pathname.slice('/api/users/'.length));
     try {
@@ -244,7 +264,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // G. POST /api/auth/change-password : Changer son mot de passe
+  // 2.4 POST /api/auth/change-password : Modification du mot de passe personnel
   if (pathname === '/api/auth/change-password' && method === 'POST') {
     readJSONBody(req).then(({ oldPassword, newPassword }) => {
       const user = findUserById(req.user.userId);
@@ -262,9 +282,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // --- ROUTES API ---
+  // =========================================================================
+  // SECTION 3 : CONSULTATION DES TARIFS, KPI & FACTURATION
+  // =========================================================================
 
-  // 1. GET /api/stats : KPI globaux
+  // 3.1 GET /api/stats : KPI globaux (Destinations, prix moyen, hausses, baisses)
   if (pathname === '/api/stats' && method === 'GET') {
     const db = loadDatabase();
     const records = Object.values(db.records);
@@ -292,7 +314,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 2. GET /api/prices : Liste des tarifs avec recherche et filtres
+  // 3.2 GET /api/prices : Recherche et filtrage multicritères des tarifs
   if (pathname === '/api/prices' && method === 'GET') {
     const db = loadDatabase();
     let records = Object.values(db.records);
@@ -302,24 +324,22 @@ const server = http.createServer((req, res) => {
       records = records.filter(r =>
         r.country.toLowerCase().includes(q) ||
         r.operator.toLowerCase().includes(q) ||
-        r.cc.includes(q) ||
-        r.mcc.includes(q) ||
-        r.mnc.includes(q)
+        (r.cc && r.cc.includes(q)) ||
+        (r.mcc && r.mcc.includes(q)) ||
+        (r.mnc && r.mnc.includes(q))
       );
     }
 
-    // Tri par pays puis opérateur
     records.sort((a, b) => a.country.localeCompare(b.country) || a.operator.localeCompare(b.operator));
-
     sendJSON(res, 200, { count: records.length, data: records });
     return;
   }
 
-  // 3. GET /api/history : Historique de prix d'un opérateur
+  // 3.3 GET /api/history : Historique chronologique d'un opérateur
   if (pathname === '/api/history' && method === 'GET') {
     const id = query.id;
     if (!id) {
-      sendError(res, 400, 'Paramètre "id" manquant (ex: ?id=san_marino__san_marino_telecom__292_01)');
+      sendError(res, 400, 'Paramètre "id" manquant.');
       return;
     }
     const db = loadDatabase();
@@ -339,7 +359,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Graphique Python produit à la demande pour un seul opérateur.
+  // 3.4 GET /api/history-chart : Rendu PNG du graphique de l'opérateur sélectionné
   if (pathname === '/api/history-chart' && method === 'GET') {
     const id = query.id;
     if (!id) {
@@ -373,7 +393,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 4. GET /api/export : Téléchargement du fichier Facturation CSV
+  // 3.5 GET /api/export : Téléchargement du fichier Facturation CSV (Format Excel)
   if (pathname === '/api/export' && method === 'GET') {
     const margin = parseFloat(query.margin || 0);
     const country = query.country || null;
@@ -389,7 +409,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5. GET /api/archives : Versions précédentes du référentiel
+  // =========================================================================
+  // SECTION 4 : GESTION DES ARCHIVES & RÉINITIALISATION DE LA BASE
+  // =========================================================================
+
+  // 4.1 GET /api/archives : Consultation des versions précédentes archivées
   if (pathname === '/api/archives' && method === 'GET') {
     try {
       sendJSON(res, 200, { archives: listDatabaseArchives() });
@@ -399,41 +423,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5b. POST /api/reset-base : Réinitialise la base au catalogue de base (exige code PIN 2026)
-  if (pathname === '/api/reset-base' && method === 'POST') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        let code = '';
-        if (body) {
-          try {
-            const parsed = JSON.parse(body);
-            code = String(parsed.code || '').trim();
-          } catch (e) {
-            code = String(body).trim();
-          }
-        }
-        if (code !== '2026') {
-          sendError(res, 403, 'Code de sécurité incorrect. La réinitialisation exige le code PIN 2026.');
-          return;
-        }
-
-        const result = resetToBaseCatalog(true);
-        sendJSON(res, 200, {
-          success: true,
-          details: result,
-          message: 'Plateforme réinitialisée avec succès au catalogue officiel (913 destinations, 0 hausse).'
-        });
-      } catch (err) {
-        sendError(res, 500, `Erreur lors de la réinitialisation : ${err.message}`);
-      }
-    });
-    return;
-  }
-
-  // 6. GET /api/archives/:filename : Téléchargement d'une version archivée
-  if (pathname.startsWith('/api/archives/') && method === 'GET') {
+  // 4.2 GET /api/archives/:filename : Téléchargement d'un instantané JSON archivé
+  if (pathname.startsWith('/api/archives/') && !pathname.endsWith('/restore') && method === 'GET') {
     try {
       const filename = decodeURIComponent(pathname.slice('/api/archives/'.length));
       const archive = getDatabaseArchive(filename);
@@ -452,7 +443,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 6b. DELETE /api/archives/:filename : Suppression d'une version archivée
+  // 4.3 DELETE /api/archives/:filename : Suppression d'une archive (Admin)
   if (pathname.startsWith('/api/archives/') && method === 'DELETE') {
     try {
       const filename = decodeURIComponent(pathname.slice('/api/archives/'.length));
@@ -468,7 +459,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Restaurer une archive explicitement, en conservant une sauvegarde de la base actuelle.
+  // 4.4 POST /api/archives/:filename/restore : Restauration d'une version antérieure (Admin)
   if (pathname.startsWith('/api/archives/') && pathname.endsWith('/restore') && method === 'POST') {
     try {
       const filename = decodeURIComponent(pathname.slice('/api/archives/'.length, -'/restore'.length));
@@ -484,48 +475,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 7. GET /api/charts/list : Liste des graphiques Python disponibles
-  if (pathname === '/api/charts/list' && method === 'GET') {
-    if (!fs.existsSync(CHARTS_DIR)) {
-      sendJSON(res, 200, { charts: [] });
-      return;
-    }
-    const files = fs.readdirSync(CHARTS_DIR)
-      .filter(f => f.endsWith('.png') || f.endsWith('.svg'))
-      .sort((a, b) => a.localeCompare(b));
-    const charts = files.map(f => ({
-      name: f,
-      url: `/charts/${f}`,
-      title: formatChartTitle(f)
-    }));
-    sendJSON(res, 200, { count: charts.length, charts });
-    return;
-  }
-
-  // 8. POST /api/charts/generate : Déclenche la génération Python des graphes
-  if (pathname === '/api/charts/generate' && method === 'POST') {
-    const scriptPath = path.join(__dirname, '..', 'scripts', 'generate_charts.py');
-    const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
-    execFile(python, [scriptPath], { timeout: 120000 }, (error, stdout, stderr) => {
-      if (error) {
-        console.warn(`[PYTHON] Exécution échouée : ${stderr || error.message}`);
-        sendJSON(res, 500, {
-          success: false,
-          message: 'Échec de la génération Python. Vérifiez Python 3 et les dépendances définies dans requirements.txt.',
-          details: stderr || error.message
-        });
-        return;
-      }
+  // 4.5 POST /api/reset-base : Réinitialise la plateforme au catalogue officiel Sinch (Admin)
+  if (pathname === '/api/reset-base' && method === 'POST') {
+    try {
+      const result = resetToBaseCatalog(true);
       sendJSON(res, 200, {
         success: true,
-        message: 'Graphiques Python générés avec succès !',
-        output: stdout
+        details: result,
+        message: 'Plateforme réinitialisée avec succès au catalogue officiel (913 destinations, 0 hausse).'
       });
-    });
+    } catch (err) {
+      sendError(res, 500, `Erreur lors de la réinitialisation : ${err.message}`);
+    }
     return;
   }
 
-  // 9. POST /api/upload : Ingestion d'un nouveau CSV (fichier complet ou différentiel)
+  // =========================================================================
+  // SECTION 5 : INGESTION & SYNCHRONISATION SINCH
+  // =========================================================================
+
+  // 5.1 POST /api/upload : Téléversement manuel d'un CSV (Admin)
   if (pathname === '/api/upload' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -564,7 +533,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 10. GET /api/mail/status : État de la configuration et de la planification email
+  // 5.2 GET /api/mail/status : Consultation de l'état de la relève automatique
   if (pathname === '/api/mail/status' && method === 'GET') {
     const config = loadMailConfig();
     if (!config) {
@@ -587,7 +556,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 11. POST /api/mail/sync : Déclenchement d'une synchronisation manuelle immédiate
+  // 5.3 POST /api/mail/sync : Déclenchement d'une relève mail immédiate (Admin)
   if (pathname === '/api/mail/sync' && method === 'POST') {
     syncMailbox().then(result => {
       sendJSON(res, result.success ? 200 : 400, result);
@@ -597,15 +566,59 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 5.4 GET /api/charts/list : Liste des graphiques Python globaux
+  if (pathname === '/api/charts/list' && method === 'GET') {
+    if (!fs.existsSync(CHARTS_DIR)) {
+      sendJSON(res, 200, { charts: [] });
+      return;
+    }
+    const files = fs.readdirSync(CHARTS_DIR)
+      .filter(f => f.endsWith('.png') || f.endsWith('.svg'))
+      .sort((a, b) => a.localeCompare(b));
+    const charts = files.map(f => ({
+      name: f,
+      url: `/charts/${f}`,
+      title: formatChartTitle(f)
+    }));
+    sendJSON(res, 200, { count: charts.length, charts });
+    return;
+  }
+
+  // 5.5 POST /api/charts/generate : Déclenche la génération Python des graphes (Admin)
+  if (pathname === '/api/charts/generate' && method === 'POST') {
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'generate_charts.py');
+    const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+    execFile(python, [scriptPath], { timeout: 120000 }, (error, stdout, stderr) => {
+      if (error) {
+        console.warn(`[PYTHON] Exécution échouée : ${stderr || error.message}`);
+        sendJSON(res, 500, {
+          success: false,
+          message: 'Échec de la génération Python. Vérifiez Python 3 et les dépendances définies dans requirements.txt.',
+          details: stderr || error.message
+        });
+        return;
+      }
+      sendJSON(res, 200, {
+        success: true,
+        message: 'Graphiques Python générés avec succès !',
+        output: stdout
+      });
+    });
+    return;
+  }
+
+  // Route API 404 par défaut
   if (pathname.startsWith('/api/')) {
     sendError(res, 404, 'Route API introuvable');
     return;
   }
 
-  // --- SERVEUR DE FICHIERS STATIQUES (UI) ---
+  // =========================================================================
+  // SECTION 6 : DISTRIBUTION DES FICHIERS STATIQUES (UI)
+  // =========================================================================
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
 
-  // Sécurité traversée de chemin
+  // Sécurité traversée de chemin (Path Traversal Protection)
   if (!filePath.startsWith(PUBLIC_DIR)) {
     sendError(res, 403, 'Accès interdit');
     return;
@@ -613,7 +626,6 @@ const server = http.createServer((req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      // Fallback vers index.html pour les URLs simples
       filePath = path.join(PUBLIC_DIR, 'index.html');
     }
 
@@ -641,7 +653,6 @@ if (require.main === module) {
     console.log(`👉 Interface Web : http://localhost:${PORT}`);
     console.log(`👉 Écoute        : ${HOST}:${PORT}`);
     console.log(`👉 Tarifs        : http://localhost:${PORT}/api/prices`);
-    console.log(`👉 Archives      : http://localhost:${PORT}/api/archives`);
     console.log(`👉 Export Factu  : http://localhost:${PORT}/api/export`);
     console.log(`====================================================`);
     initNightlySyncScheduler();
