@@ -27,33 +27,34 @@ function getBillingData({ marginPct = 0, countryFilter = null } = {}) {
     ? records.filter(r => r.country.toLowerCase().includes(countryFilter.toLowerCase()))
     : records;
 
-  // Tri alphabétique par Pays puis Opérateur
+  // Tri alphabétique par Pays puis Opérateur avec respect des accents français
   filtered.sort((a, b) => {
-    if (a.country.localeCompare(b.country) !== 0) {
-      return a.country.localeCompare(b.country);
+    const countryCompare = (a.country || '').localeCompare(b.country || '', 'fr');
+    if (countryCompare !== 0) {
+      return countryCompare;
     }
-    return a.operator.localeCompare(b.operator);
+    return (a.operator || '').localeCompare(b.operator || '', 'fr');
   });
 
   return filtered.map(r => {
-    const buyPrice = r.currentPrice;
+    const buyPrice = Number.isFinite(r.currentPrice) ? r.currentPrice : (parseFloat(r.currentPrice) || 0);
     const marginMultiplier = 1 + (marginPct / 100);
     const sellPrice = parseFloat((buyPrice * marginMultiplier).toFixed(5));
 
     return {
-      country: r.country,
-      operator: r.operator,
-      network: r.network,
-      cc: r.cc,
-      mcc: r.mcc,
-      mnc: r.mnc,
+      country: r.country || '',
+      operator: r.operator || '',
+      network: r.network || r.operator || '',
+      cc: r.cc || '',
+      mcc: r.mcc || '',
+      mnc: r.mnc || '',
       buyPriceEUR: buyPrice.toFixed(5),
       marginPct: marginPct,
       sellPriceEUR: sellPrice.toFixed(5),
-      priceChangeEUR: r.priceChange !== undefined ? r.priceChange.toFixed(5) : '0.00000',
+      priceChangeEUR: Number.isFinite(r.priceChange) ? r.priceChange.toFixed(5) : '0.00000',
       percentChange: r.percentChange !== undefined ? `${r.percentChange}%` : '0%',
-      validFrom: r.validFrom,
-      productRef: r.product,
+      validFrom: r.validFrom || '',
+      productRef: r.product || '',
       lastUpdated: db.meta.lastUpdated ? db.meta.lastUpdated.slice(0, 10) : ''
     };
   });
